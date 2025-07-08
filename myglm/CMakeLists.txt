@@ -11,11 +11,11 @@ target_include_directories(myglm_test PRIVATE ../lib ..)
 
 include(CTest)
 enable_testing()
-add_test(NAME allTests 
+add_test(NAME myglmTests
 	COMMAND ${CMAKE_CURRENT_BINARY_DIR}/myglm_test
 )
 
-add_custom_target(check
+add_custom_target(myglm_check
 	COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
 	DEPENDS myglm_test
 )

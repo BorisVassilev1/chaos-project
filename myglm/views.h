@@ -6,7 +6,7 @@ template <class T, std::size_t N, std::size_t M, class type>
 class Transpose {
    public:
 	// using type = mat<T, M, N>;
-	using value_type = std::conditional_t<std::is_const_v<type>, T, const T>;
+	using value_type = std::conditional_t<std::is_const_v<type>, const T, T>;
 
 	template <class U>
 	Transpose(U&& matrix) : m(matrix) {}

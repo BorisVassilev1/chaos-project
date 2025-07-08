@@ -31,9 +31,7 @@ public:
 			-1.0f
 		));
 		auto t = Transpose(view_matrix)[3]._xyz();
-
-
-		return Ray(vec3(0.f), direction);
+		return Ray(t, direction);
 	}
 
 };

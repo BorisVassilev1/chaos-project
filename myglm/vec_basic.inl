@@ -88,6 +88,6 @@ inline constexpr vec& operator=(vec<U, N>&& other) noexcept {
 	return *this;
 }
 
-inline constexpr T&			 operator[](std::size_t index) { return data[index]; }
-inline constexpr const T&	 operator[](std::size_t index) const { return data[index]; }
-inline constexpr std::size_t size() const { return N; }
+inline constexpr value_type&	   operator[](std::size_t index) { return data[index]; }
+inline constexpr const value_type& operator[](std::size_t index) const { return data[index]; }
+inline constexpr std::size_t	   size() const { return N; }

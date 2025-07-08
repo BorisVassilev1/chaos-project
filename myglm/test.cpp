@@ -87,7 +87,9 @@ TEST_CASE("matrix transpose") {
 
 	auto t = Transpose(m1);
 
-	t[0] = vec<float, 2>{7.f, 8.f};
+	auto k = t[0];
+	k = vec<float, 2>{7.f, 8.f};
+	k[0] = 7.f;
 	
 	CHECK(m1 == mat<float, 2, 3>{{7.f, 2.f, 3.f}, {8.f, 5.f, 6.f}});
 };
