@@ -104,6 +104,7 @@ using dvec4 = vec<double, 4>;
 		__m128 result = f(va, vb);                                                        \
 		vec4   v_result;                                                                  \
 		_mm_store_ps(v_result.data, result);                                              \
+		return v_result;                                                                  \
 	}
 #define SIMD_OPERATOR_INPLACE_F4(op, f)                                              \
 	inline constexpr auto& operator op(vec<float, 3>& v1, const vec<float, 3>& v2) { \
@@ -133,30 +134,27 @@ using dvec4 = vec<double, 4>;
 		return v1;                                                    \
 	}
 
-SIMD_OPERATOR_F4(+, _mm_add_ps);
-SIMD_OPERATOR_F4(-, _mm_sub_ps);
-SIMD_OPERATOR_F4(*, _mm_mul_ps);
-SIMD_OPERATOR_F4(/, _mm_div_ps);
-SIMD_OPERATOR_INPLACE_F4(+=, _mm_add_ps);
-SIMD_OPERATOR_INPLACE_F4(-=, _mm_sub_ps);
-SIMD_OPERATOR_INPLACE_F4(*=, _mm_mul_ps);
-SIMD_OPERATOR_INPLACE_F4(/=, _mm_div_ps);
-
-inline constexpr auto dot(const vec<float, 4>& v1, const vec<float, 4>& v2) {
-	__m128			  a		 = _mm_load_ps(v1.data);
-	__m128			  b		 = _mm_load_ps(v2.data);
-	__m128			  result = _mm_dp_ps(a, b, 0xF);
-	alignas(16) float temp_result;
-	_mm_store_ps1(&temp_result, result);
-	return temp_result;
-}
-
-SIMD_OPERATOR_F4_SCALAR(+, _mm_add_ps);
-SIMD_OPERATOR_F4_SCALAR(-, _mm_sub_ps);
-SIMD_OPERATOR_F4_SCALAR(*, _mm_mul_ps);
-SIMD_OPERATOR_F4_SCALAR(/, _mm_div_ps);
-SIMD_OPERATOR_INPLACE_F4_SCALAR(+=, _mm_add_ps);
-SIMD_OPERATOR_INPLACE_F4_SCALAR(-=, _mm_sub_ps);
-SIMD_OPERATOR_INPLACE_F4_SCALAR(*=, _mm_mul_ps);
-SIMD_OPERATOR_INPLACE_F4_SCALAR(/=, _mm_div_ps);
-
+//SIMD_OPERATOR_F4(+, _mm_add_ps);
+//SIMD_OPERATOR_F4(-, _mm_sub_ps);
+//SIMD_OPERATOR_F4(*, _mm_mul_ps);
+//SIMD_OPERATOR_F4(/, _mm_div_ps);
+//SIMD_OPERATOR_INPLACE_F4(+=, _mm_add_ps);
+//SIMD_OPERATOR_INPLACE_F4(-=, _mm_sub_ps);
+//SIMD_OPERATOR_INPLACE_F4(*=, _mm_mul_ps);
+//SIMD_OPERATOR_INPLACE_F4(/=, _mm_div_ps);
+//
+//inline constexpr auto dot(const vec<float, 4>& v1, const vec<float, 4>& v2) {
+//	__m128 a	  = _mm_load_ps(v1.data);
+//	__m128 b	  = _mm_load_ps(v2.data);
+//	__m128 result = _mm_dp_ps(a, b, 0xFF);
+//	return _mm_cvtss_f32(result);
+//}
+//
+//SIMD_OPERATOR_F4_SCALAR(+, _mm_add_ps);
+//SIMD_OPERATOR_F4_SCALAR(-, _mm_sub_ps);
+//SIMD_OPERATOR_F4_SCALAR(*, _mm_mul_ps);
+//SIMD_OPERATOR_F4_SCALAR(/, _mm_div_ps);
+//SIMD_OPERATOR_INPLACE_F4_SCALAR(+=, _mm_add_ps);
+//SIMD_OPERATOR_INPLACE_F4_SCALAR(-=, _mm_sub_ps);
+//SIMD_OPERATOR_INPLACE_F4_SCALAR(*=, _mm_mul_ps);
+//SIMD_OPERATOR_INPLACE_F4_SCALAR(/=, _mm_div_ps);

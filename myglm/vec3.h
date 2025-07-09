@@ -65,11 +65,11 @@ inline constexpr auto triple(const vec<T, 3>& u, const vec<T, 3>& v, const vec<T
 	return dot(u, cross(v, w));
 }
 
-inline constexpr auto dot(const vec<float, 3>& v1, const vec<float, 3>& v2) {
-	__m128 a = _mm_set_ps(0.f, v1.z, v1.y, v1.x);
-	__m128 b = _mm_set_ps(0.f, v2.z, v2.y, v2.x);
-	return _mm_cvtss_f32(_mm_dp_ps(a, b, 0x7F));
-}
+//inline constexpr auto dot(const vec<float, 3>& v1, const vec<float, 3>& v2) {
+//	__m128 a = _mm_set_ps(0.f, v1.z, v1.y, v1.x);
+//	__m128 b = _mm_set_ps(0.f, v2.z, v2.y, v2.x);
+//	return _mm_cvtss_f32(_mm_dp_ps(a, b, 0x7F));
+//}
 
 #define SIMD_OPERATOR_F3(op, f)                                                                      \
 	inline constexpr auto operator op(const vec<float, 3>& v1, const vec<float, 3>& v2) {            \

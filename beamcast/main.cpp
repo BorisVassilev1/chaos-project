@@ -2,9 +2,8 @@
 
 #include <img/export.hpp>
 
-#include <fstream>
-#include "camera.hpp"
-#include "scene.hpp"
+#include <camera.hpp>
+#include <scene.hpp>
 
 int main(int argc, char** argv) {
 	if (argc <= 1) {

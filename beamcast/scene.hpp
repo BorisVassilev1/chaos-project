@@ -6,6 +6,7 @@
 #include <img/image.hpp>
 #include <json/json.hpp>
 #include <img/export.hpp>
+#include <ranges>
 
 class Scene {
    public:
@@ -19,12 +20,13 @@ class Scene {
 	std::vector<Triangle> triangles;
 
 	auto intersect(const Ray &r) const {
-		float t = std::numeric_limits<float>::max();
-		for (const auto &triangle : triangles) {
+		float t	  = std::numeric_limits<float>::max();
+		int	  tid = -1;
+		for (const auto &[i, triangle] : std::views::enumerate(triangles)) {
 			auto tnew = triangle.intersect(r);
-			if (tnew > 0.f && tnew < t) { t = tnew; }
+			if (tnew > 0.f && tnew < t) { t = tnew; tid = i;}
 		}
-		return t;
+		return RayHit(t, tid);
 	}
 
 	Scene()							= default;
@@ -105,27 +107,25 @@ class Scene {
 	}
 
 	void render() {
-		std::cout << "Rendering scene..." << std::endl;
-		std::size_t i	  = 0;
-		std::size_t total = image.getWidth() * image.getHeight();
-		for (auto [x, y] : image.Iterate()) {
-			++i;
-			if (i % (total / 100) == 0) { std::cout << "\rRendering: " << (i * 100 / total) << "%" << std::flush; }
+		RGB32F colors[] = {vec3(1.f, 0.f, 0.f), vec3(0.f, 1.f, 0.f), vec3(0.f, 0.f, 1.f),
+						 vec3(1.f, 1.f, 0.f), vec3(0.f, 1.f, 1.f), vec3(1.f, 0.f, 1.f)};
 
-			auto r = camera.generate_ray(ivec2(x, y), image.resolution());
-			auto t = intersect(r);
+		PercentLogger logger("Rendering", image.getWidth() * image.getHeight());
+		for (auto [x, y] : image.Iterate()) {
+			logger.step();
+
+			auto r		  = camera.generate_ray(ivec2(x, y), image.resolution());
+			auto [t, tid] = intersect(r);
 
 			if (t == std::numeric_limits<float>::max()) {
-				image(x, y) = convert<RGB32F, RGB>(backgroundColor.xyz());
+				image(x, y) = backgroundColor.xyz();
 				continue;
 			}
 
-			t = std::clamp(t, 0.f, 1.f);
-
-			RGB32F color = {t, t, t};
-			image(x, y)	 = convert<RGB32F, RGB>(color);
+			RGB32F color = colors[tid % 6];
+			image(x, y)	 = color.xyz();
 		}
-		std::cout << "\rRendering: Done" << std::endl;
+		logger.finish();
 	};
 
 	void saveImage(const std::string_view &filename) const {

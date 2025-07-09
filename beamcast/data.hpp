@@ -50,3 +50,28 @@ struct Triangle {
 		return t;
 	}
 };
+
+struct RayHit {
+	float t;
+	int triangleIndex;
+};
+
+class PercentLogger {
+	std::string name;
+	std::size_t total;
+	std::size_t current;
+
+   public:
+	PercentLogger(const std::string& name, std::size_t total) : name(name), total(total), current(0) {
+		std::cout << name << ": 0%" << std::flush;
+	}
+
+	inline constexpr void step() {
+		++current;
+		if (current % (total / 100) == 0) {
+			std::cout << "\r" << name << ": " << (current * 100 / total) << "%" << std::flush;
+		}
+	}
+
+	inline constexpr void finish() { std::cout << "\r" << name << ": 100%" << std::endl; }
+};
