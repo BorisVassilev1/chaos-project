@@ -1,5 +1,6 @@
 #pragma once
 
+#include <fstream>
 #include <img/image.hpp>
 
 template <class ColorFormat>
@@ -32,4 +33,13 @@ auto export_PPM_BIN(const Image<ColorFormat>& image, std::ostream& out) {
 		out.write(reinterpret_cast<const char*>(&converted), sizeof(converted));
 	}
 	return true;
+}
+
+template <class Exporter, class ColorFormat>
+inline void exportToFile(const Image<ColorFormat> &img, const std::string_view &filename, Exporter && exp) {
+	std::ofstream out(filename.data(), std::ios::binary);
+	if (!out) {
+		throw std::runtime_error("Failed to open file for writing: " + std::string(filename));
+	}
+	exp(img, out);
 }

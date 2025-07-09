@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-file(GLOB_RECURSE sources ./*.cpp ./*.c)
-file(GLOB_RECURSE sources_test test.cpp)
+file(GLOB_RECURSE sources_test test.cpp json.cpp)
 
 add_subdirectory(../lib/sdp_2023/ sdp_2023)
 

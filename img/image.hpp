@@ -2,6 +2,7 @@
 
 #include <myglm/myglm.h>
 #include <ranges>
+#include "json/json.hpp"
 
 using RGB	  = vec<uint8_t, 3>;
 using RGBA	  = vec<uint8_t, 4>;
@@ -16,7 +17,13 @@ class Image : public std::vector<ColorFormat> {
 	using Base = std::vector<ColorFormat>;
 
    public:
+	Image() : Base(), width(100), height(100) {}
 	Image(std::size_t w, std::size_t h) : Base(w * h), width(w), height(h) {}
+	Image(const JSONObject &obj) {
+		width  = obj["width"].as<JSONNumber>();
+		height = obj["height"].as<JSONNumber>();
+		Base::resize(width * height);
+	}
 
 	using Base::operator[];
 	inline constexpr auto& operator()(std::size_t x, std::size_t y) { return Base::operator[](y* width + x); }
@@ -27,12 +34,16 @@ class Image : public std::vector<ColorFormat> {
 
 	inline constexpr std::size_t getWidth() const { return width; }
 	inline constexpr std::size_t getHeight() const { return height; }
-	inline constexpr ivec2 resolution() const {
-		return ivec2(static_cast<int>(width), static_cast<int>(height));
-	}
+	inline constexpr ivec2		 resolution() const { return ivec2(static_cast<int>(width), static_cast<int>(height)); }
 
 	inline constexpr auto Iterate() const {
 		return std::views::cartesian_product(std::views::iota(0u, width), std::views::iota(0u, height));
+	}
+
+	inline void resize(std::size_t w, std::size_t h) {
+		width  = w;
+		height = h;
+		Base::resize(width * height);
 	}
 };
 

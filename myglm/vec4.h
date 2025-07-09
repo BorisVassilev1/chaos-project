@@ -1,25 +1,34 @@
 #pragma once
 
 #include <myglm/vec.h>
+#include <immintrin.h>
 
-template<class T>
+template <class T>
 class vec<T, 4> {
-public:
+   public:
 	union {
 		T data[4];
 		struct {
-			union{ T x, r, s;};
-			union{ T y, g, t;};
-			union{ T z, b, p;};
-			union{ T w, a, q;};
+			union {
+				T x, r, s;
+			};
+			union {
+				T y, g, t;
+			};
+			union {
+				T z, b, p;
+			};
+			union {
+				T w, a, q;
+			};
 		};
 	};
 
 	static constexpr unsigned int N = 4;
 
-	#include "vec_basic.inl"
+#include "vec_basic.inl"
 
-	inline constexpr vec(T && a1, T && a2, T && a3, T && a4) 
+	inline constexpr vec(T&& a1, T&& a2, T&& a3, T&& a4)
 		: data{std::forward<T>(a1), std::forward<T>(a2), std::forward<T>(a3), std::forward<T>(a4)} {}
 
 	VEC_SWIZZLE_2(xy, x, y)
@@ -34,7 +43,7 @@ public:
 	VEC_SWIZZLE_2(wx, w, x)
 	VEC_SWIZZLE_2(wy, w, y)
 	VEC_SWIZZLE_2(wz, w, z)
-	
+
 	VEC_SWIZZLE_2(xx, x, x)
 	VEC_SWIZZLE_2(yy, y, y)
 	VEC_SWIZZLE_2(zz, z, z)
@@ -83,7 +92,71 @@ public:
 	VEC_SWIZZLE_4(wzyx, w, z, y, x)
 };
 
-using vec4 = vec<float, 4>;
+using vec4	= vec<float, 4>;
 using ivec4 = vec<int, 4>;
 using uvec4 = vec<unsigned int, 4>;
 using dvec4 = vec<double, 4>;
+
+#define SIMD_OPERATOR_F4(op, f)                                                           \
+	inline constexpr auto operator op(const vec<float, 4>& v1, const vec<float, 4>& v2) { \
+		__m128 va	  = _mm_load_ps(v1.data);                                             \
+		__m128 vb	  = _mm_load_ps(v2.data);                                             \
+		__m128 result = f(va, vb);                                                        \
+		vec4   v_result;                                                                  \
+		_mm_store_ps(v_result.data, result);                                              \
+	}
+#define SIMD_OPERATOR_INPLACE_F4(op, f)                                              \
+	inline constexpr auto& operator op(vec<float, 3>& v1, const vec<float, 3>& v2) { \
+		__m128 va	  = _mm_load_ps(v1.data);                                        \
+		__m128 vb	  = _mm_load_ps(v2.data);                                        \
+		__m128 result = f(va, vb);                                                   \
+		_mm_store_ps(v1.data, result);                                               \
+		return v1;                                                                   \
+	}
+
+#define SIMD_OPERATOR_F4_SCALAR(op, f)                                     \
+	inline constexpr auto operator op(const vec<float, 4>& v1, float v2) { \
+		__m128 va	  = _mm_load_ps(v1.data);                              \
+		__m128 vb	  = _mm_set1_ps(v2);                                   \
+		__m128 result = f(va, vb);                                         \
+		vec4   v_result;                                                   \
+		_mm_store_ps(v_result.data, result);                               \
+		return v_result;                                                   \
+	}
+
+#define SIMD_OPERATOR_INPLACE_F4_SCALAR(op, f)                        \
+	inline constexpr auto& operator op(vec<float, 4>& v1, float v2) { \
+		__m128 va	  = _mm_load_ps(v1.data);                         \
+		__m128 vb	  = _mm_set1_ps(v2);                              \
+		__m128 result = f(va, vb);                                    \
+		_mm_store_ps(v1.data, result);                                \
+		return v1;                                                    \
+	}
+
+SIMD_OPERATOR_F4(+, _mm_add_ps);
+SIMD_OPERATOR_F4(-, _mm_sub_ps);
+SIMD_OPERATOR_F4(*, _mm_mul_ps);
+SIMD_OPERATOR_F4(/, _mm_div_ps);
+SIMD_OPERATOR_INPLACE_F4(+=, _mm_add_ps);
+SIMD_OPERATOR_INPLACE_F4(-=, _mm_sub_ps);
+SIMD_OPERATOR_INPLACE_F4(*=, _mm_mul_ps);
+SIMD_OPERATOR_INPLACE_F4(/=, _mm_div_ps);
+
+inline constexpr auto dot(const vec<float, 4>& v1, const vec<float, 4>& v2) {
+	__m128			  a		 = _mm_load_ps(v1.data);
+	__m128			  b		 = _mm_load_ps(v2.data);
+	__m128			  result = _mm_dp_ps(a, b, 0xF);
+	alignas(16) float temp_result;
+	_mm_store_ps1(&temp_result, result);
+	return temp_result;
+}
+
+SIMD_OPERATOR_F4_SCALAR(+, _mm_add_ps);
+SIMD_OPERATOR_F4_SCALAR(-, _mm_sub_ps);
+SIMD_OPERATOR_F4_SCALAR(*, _mm_mul_ps);
+SIMD_OPERATOR_F4_SCALAR(/, _mm_div_ps);
+SIMD_OPERATOR_INPLACE_F4_SCALAR(+=, _mm_add_ps);
+SIMD_OPERATOR_INPLACE_F4_SCALAR(-=, _mm_sub_ps);
+SIMD_OPERATOR_INPLACE_F4_SCALAR(*=, _mm_mul_ps);
+SIMD_OPERATOR_INPLACE_F4_SCALAR(/=, _mm_div_ps);
+

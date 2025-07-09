@@ -61,3 +61,13 @@ inline constexpr auto transpose(const mat<T, N, M>& m) {
 	}(std::make_index_sequence<N>{}, std::make_index_sequence<M>{});
 	return result;
 }
+
+template <class T, std::size_t N>
+inline constexpr auto identity() {
+	mat<T, N, N> result(0);
+	[&]<std::size_t... i>(std::index_sequence<i...>) {
+		((result[i][i] = T(1)), ...);
+	}(std::make_index_sequence<N>{});
+	return result;
+}
+

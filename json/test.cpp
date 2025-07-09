@@ -30,7 +30,7 @@ TEST_CASE("JSON tokenizing") {
 }
 
 TEST_CASE("JSON parsing") {
-	JSONParser	parser;
+	auto	   &parser	  = JSONParser::getInstance();
 	std::string json_str  = R"({"key": "value", "number": 123, "array": [1, 2, 3], "object": {"nested": "value"}})";
 	auto		tokenized = tokenize(json_str);
 	auto		result	  = parser.parse(tokenized.get());
