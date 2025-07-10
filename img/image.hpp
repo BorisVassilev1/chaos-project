@@ -19,7 +19,7 @@ class Image : public std::vector<ColorFormat> {
    public:
 	Image() : Base(), width(100), height(100) {}
 	Image(std::size_t w, std::size_t h) : Base(w * h), width(w), height(h) {}
-	Image(const JSONObject &obj) {
+	Image(const JSONObject& obj) {
 		width  = obj["width"].as<JSONNumber>();
 		height = obj["height"].as<JSONNumber>();
 		Base::resize(width * height);
@@ -77,6 +77,7 @@ inline constexpr RGB32F convert<RGB, RGB32F>(const RGB& color) {
 }
 template <>
 inline constexpr RGB convert<RGB32F, RGB>(const RGB32F& color) {
-	return RGB{static_cast<uint8_t>(color.x * 255.0f), static_cast<uint8_t>(color.y * 255.0f),
-			   static_cast<uint8_t>(color.z * 255.0f)};
+	return RGB{static_cast<uint8_t>(std::clamp(color.x, 0.f, 1.f) * 255.0f),
+			   static_cast<uint8_t>(std::clamp(color.y, 0.f, 1.f) * 255.0f),
+			   static_cast<uint8_t>(std::clamp(color.z, 0.f, 1.f) * 255.0f)};
 }

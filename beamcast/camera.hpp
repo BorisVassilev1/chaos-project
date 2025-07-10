@@ -29,6 +29,7 @@ class Camera {
 		view_matrix[1]	= vec4(mat[3].as<JSONNumber>(), mat[4].as<JSONNumber>(), mat[5].as<JSONNumber>(), 0.f);
 		view_matrix[2]	= vec4(mat[6].as<JSONNumber>(), mat[7].as<JSONNumber>(), mat[8].as<JSONNumber>(), 0.f);
 		view_matrix[3]	= vec4(0, 0, 0, 1);
+		view_matrix		= transpose(view_matrix);
 
 		const auto &pos = obj["position"].as<JSONArray>();
 		auto		t	= Transpose(view_matrix);
@@ -38,16 +39,17 @@ class Camera {
 	}
 
 	Ray generate_ray(ivec2 pixel, ivec2 resolution) const {
-		pixel.y = resolution.y - pixel.y - 1; // Flip Y coordinate for image coordinates
+		pixel.y		 = resolution.y - pixel.y - 1;	   // Flip Y coordinate for image coordinates
 		float aspect = (float)resolution.x / (float)resolution.y;
 		vec2  ndc	 = vec2(((float)pixel.x + .5f) / (float)resolution.x, ((float)pixel.y + .5f) / (float)resolution.y);
 
-		vec2 screen = vec2(ndc.x * 2.0f - 1.0f, ndc.y * 2.0f - 1.0f);
+		vec2 screen = ndc * 2.0f - 1.0f;
 
 		screen.x *= aspect;
 
 		vec3 direction = normalize(vec3(screen.x * tan(fov / 2.0f), screen.y * tan(fov / 2.0f), -1.0f));
-		auto t		   = Transpose(view_matrix)[3]._xyz();
+		direction	   = (view_matrix * vec4(direction, 0.0f)).xyz();
+		auto t = Transpose(view_matrix)[3]._xyz();
 		return Ray(t, direction);
 	}
 };

@@ -10,5 +10,6 @@ target_include_directories(main PRIVATE ../lib ../ ../lib/sdp_2023/ )
 target_include_directories(main PUBLIC .)
 set_target_properties(main PROPERTIES RUNTIME_OUTPUT_DIRECTORY ../../)
 target_link_libraries(main DPDA)
-target_compile_options(main PRIVATE -Wall -Wextra -O3 -mavx -mavx2 -march=native)
+target_compile_options(main PRIVATE -Wall -Wextra -O3 -mavx -mavx2 -march=native -pthread)
+target_link_options(main PRIVATE -ltbb -ltbbmalloc -ltbbmalloc_proxy -pthread)
 

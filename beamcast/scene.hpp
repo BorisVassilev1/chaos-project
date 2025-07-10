@@ -1,12 +1,15 @@
 #pragma once
 
+#include <algorithm>
 #include <beamcast/data.hpp>
+#include <execution>
 #include <limits>
 #include <camera.hpp>
 #include <img/image.hpp>
 #include <json/json.hpp>
 #include <img/export.hpp>
 #include <ranges>
+#include "myglm/vec.h"
 
 class Scene {
    public:
@@ -17,17 +20,22 @@ class Scene {
 	ivec2 resolution;
 	float resolution_scale = 1.0f;
 
-	std::vector<Triangle> triangles;
+	std::vector<PointLight> lights;
+	std::vector<Mesh>		objects;
 
 	auto intersect(const Ray &r) const {
-		float t	  = std::numeric_limits<float>::max();
-		int	  tid = -1;
-		for (const auto &[i, triangle] : std::views::enumerate(triangles)) {
-			auto tnew = triangle.intersect(r);
-			if (tnew > 0.f && tnew < t) { t = tnew; tid = i;}
+		RayHit hit;
+		for (const auto &[i, object] : std::views::enumerate(objects)) {
+			auto hitnew = object.intersect(r);
+			if (hitnew.t > 0.f && hitnew.t < hit.t) {
+				hit				= hitnew;
+				hit.objectIndex = i;
+			}
 		}
-		return RayHit(t, tid);
+		return hit;
 	}
+
+	auto fillHitInfo(RayHit &hit, const Ray &r) const { objects[hit.objectIndex].fillHitInfo(hit, r); }
 
 	Scene()							= default;
 	Scene(const Scene &)			= default;
@@ -36,95 +44,30 @@ class Scene {
 	Scene &operator=(Scene &&)		= default;
 	~Scene()						= default;
 
-	Scene(const std::string_view &filename) {
-		try {
-			auto json = JSONFromFile(filename);
-			if (json == nullptr) {
-				throw std::runtime_error("Failed to load scene from file: " + std::string(filename));
-			}
-
-			if (json->getType() != JSONType::Object) {
-				throw std::runtime_error("Scene file must contain a JSON object");
-			}
-
-			auto &jo	   = json->as<JSONObject>();
-			auto &settings = jo["settings"].as<JSONObject>();
-
-			auto &imageSettings = settings["image_settings"].as<JSONObject>();
-			this->image			= Image<RGB32F>(imageSettings);
-			this->resolution	= image.resolution();
-
-			auto &backgroundJSON  = settings["background_color"].as<JSONArray>();
-			this->backgroundColor = vec4{backgroundJSON[0].as<JSONNumber>(), backgroundJSON[1].as<JSONNumber>(),
-										 backgroundJSON[2].as<JSONNumber>(),
-										 backgroundJSON.size() > 3 ? (float)backgroundJSON[3].as<JSONNumber>() : 1.0f};
-
-			auto &cameraJSON = jo["camera"].as<JSONObject>();
-			this->camera	 = Camera(cameraJSON);
-
-			auto			 &objects = jo["objects"].as<JSONArray>();
-			std::vector<vec3> vertexArray;
-			for (const auto &j : objects) {
-				auto &obj	   = j->as<JSONObject>();
-				auto &vertices = obj["vertices"].as<JSONArray>();
-				for (unsigned int i = 0; i < vertices.size(); i += 3) {
-					if (i + 2 >= vertices.size()) {
-						throw std::runtime_error("Invalid number of vertices in triangle object");
-					}
-					vec3 v0 = {vertices[i].as<JSONNumber>(), vertices[i + 1].as<JSONNumber>(),
-							   vertices[i + 2].as<JSONNumber>()};
-					vertexArray.push_back(v0);
-				}
-				auto &indices = obj["triangles"].as<JSONArray>();
-				if (indices.size() % 3 != 0) {
-					throw std::runtime_error("Indices must be a multiple of 3 for triangle objects");
-				}
-				for (unsigned int i = 0; i < indices.size(); i += 3) {
-					if (i + 2 >= indices.size()) {
-						throw std::runtime_error("Invalid number of indices in triangle object");
-					}
-					unsigned int idx0 = indices[i].as<JSONNumber>();
-					unsigned int idx1 = indices[i + 1].as<JSONNumber>();
-					unsigned int idx2 = indices[i + 2].as<JSONNumber>();
-
-					if (idx0 >= vertexArray.size() || idx1 >= vertexArray.size() || idx2 >= vertexArray.size()) {
-						throw std::runtime_error("Index out of bounds in triangle object");
-					}
-
-					triangles.emplace_back(vertexArray[idx0], vertexArray[idx1], vertexArray[idx2]);
-				}
-			}
-
-		} catch (const std::exception &e) {
-			std::cerr << "Error loading scene: " << e.what() << std::endl;
-			clear();
-		}
-	}
+	Scene(const std::string_view &filename);
 
 	void clear() {
-		triangles.clear();
+		objects.clear();
+		lights.clear();
+		image.clear();
 		camera = Camera{};
 	}
 
-	void render() {
-		RGB32F colors[] = {vec3(1.f, 0.f, 0.f), vec3(0.f, 1.f, 0.f), vec3(0.f, 0.f, 1.f),
-						 vec3(1.f, 1.f, 0.f), vec3(0.f, 1.f, 1.f), vec3(1.f, 0.f, 1.f)};
+	RGB32F shadePixel(const ivec2 &pixel) const;
 
+	void render() {
 		PercentLogger logger("Rendering", image.getWidth() * image.getHeight());
-		for (auto [x, y] : image.Iterate()) {
+		// for (auto [x, y] : image.Iterate()) {
+		auto I = image.Iterate();
+		std::for_each(std::execution::par_unseq, I.begin(), I.end(), [&](const auto &pair) {
+			auto [x, y] = pair;
 			logger.step();
 
-			auto r		  = camera.generate_ray(ivec2(x, y), image.resolution());
-			auto [t, tid] = intersect(r);
+			auto color = shadePixel(ivec2(x, y));
 
-			if (t == std::numeric_limits<float>::max()) {
-				image(x, y) = backgroundColor.xyz();
-				continue;
-			}
-
-			RGB32F color = colors[tid % 6];
-			image(x, y)	 = color.xyz();
-		}
+			apply_inplace(color, [](float &c) { return std::clamp(c, 0.f, 1.f); });
+			image(x, y) = color.xyz();
+		});
 		logger.finish();
 	};
 

@@ -36,6 +36,25 @@ inline constexpr auto operator*(const mat<T, N, M>& m1, const mat<T, M, K>& m2) 
 }
 
 template <class T, std::size_t N, std::size_t M>
+inline constexpr auto operator*(const mat<T, N, M>& m, const vec<T, M>& v) {
+	vec<T, N> result;
+	[&]<std::size_t... i>(std::index_sequence<i...>) {
+		((result[i] = dot(m[i], v)), ...);
+	}(std::make_index_sequence<N>{});
+	return result;
+}
+
+template <class T, std::size_t N, std::size_t M>
+inline constexpr auto operator*(const vec<T, N>& v, const mat<T, N, M>& m) {
+	vec<T, M> result;
+	auto t = transpose(m);
+	[&]<std::size_t... i>(std::index_sequence<i...>) {
+		((result[i] = dot(v, t[i])), ...);
+	}(std::make_index_sequence<M>{});
+	return result;
+}
+
+template <class T, std::size_t N, std::size_t M>
 inline constexpr auto operator+(const mat<T, N, M>& m1, const mat<T, N, M>& m2) {
 	mat<T, N, M> result;
 	[&]<std::size_t... i>(std::index_sequence<i...>) {
@@ -56,9 +75,15 @@ inline constexpr auto operator-(const mat<T, N, M>& m1, const mat<T, N, M>& m2) 
 template <class T, std::size_t N, std::size_t M>
 inline constexpr auto transpose(const mat<T, N, M>& m) {
 	mat<T, M, N> result;
-	[&]<std::size_t... i, std::size_t... j>(std::index_sequence<i...>, std::index_sequence<j...>) {
-		((result[j][i] = m[i][j]), ...);
-	}(std::make_index_sequence<N>{}, std::make_index_sequence<M>{});
+	auto it_i = [&] [[clang::always_inline]] (std::size_t i) {
+		[&]<std::size_t... j>(std::index_sequence<j...>) {
+			((result[j][i] = m[i][j]), ...);
+		}(std::make_index_sequence<M>{});
+	};
+
+	[&]<std::size_t... i>(std::index_sequence<i...>) {
+		((it_i(i)), ...);
+	}(std::make_index_sequence<N>{});
 	return result;
 }
 
