@@ -21,6 +21,7 @@ struct RayHit {
 	unsigned int triangleIndex = -1;
 	vec2		 uv;
 	unsigned int objectIndex = -1;
+	unsigned int depth		 = 0;
 };
 
 struct Triangle {
@@ -54,9 +55,11 @@ struct Triangle {
 		inverseD = uv * uv - uu * vv;
 		inverseD = 1.0f / inverseD;
 		float u	 = (uv * wv - vv * wu) * inverseD;
-		if (u < 0.0 || u > 1.0) [[likely]] return RayHit();
+		if (u < 0.0 || u > 1.0) [[likely]]
+			return RayHit();
 		float v = (uv * wu - uu * wv) * inverseD;
-		if (v < 0.0 || (u + v) > 1.0) [[likely]] return RayHit();
+		if (v < 0.0 || (u + v) > 1.0) [[likely]]
+			return RayHit();
 
 		RayHit hit;
 		hit.t  = t;
@@ -88,6 +91,8 @@ class Mesh {
 	std::vector<vec3>  normals;
 	std::vector<vec3>  triangleNormals;
 	std::vector<ivec3> indices;
+
+	std::size_t materialIndex = 0;
 
    public:
 	Mesh() = default;
@@ -124,6 +129,15 @@ class Mesh {
 		}
 		normals.resize(vertices.size(), vec3(0.0f));
 		recalculateNormals();
+
+		if (obj.find("material_index") != obj.end()) {
+			materialIndex = obj["material_index"].as<JSONNumber>();
+		} else {
+			materialIndex = 0;	   // Default to first material if not specified
+		}
+
+		std::cout << "Mesh created with " << vertices.size() << " vertices and " << indices.size() << " triangles."
+				  << std::endl;
 	}
 
 	void recalculateNormals() {
@@ -156,7 +170,7 @@ class Mesh {
 		for (auto [i, index] : std::views::enumerate(indices)) {
 			const auto triangle = Triangle(vertices[index.x], vertices[index.y], vertices[index.z]);
 			const auto hitnew	= triangle.intersect(ray);
-			if (hitnew.t > 0.f && hitnew.t < hit.t) {
+			if (hitnew.t > 0.001f && hitnew.t < hit.t) {
 				hit				  = hitnew;
 				hit.triangleIndex = i;
 			}
@@ -169,11 +183,13 @@ class Mesh {
 
 		hit.pos = ray.at(hit.t);
 		if (smooth) {
-			hit.normal = normals[indices[hit.triangleIndex].x] * (1.0f - hit.uv.x - hit.uv.y) +
-						 normals[indices[hit.triangleIndex].y] * hit.uv.x +
-						 normals[indices[hit.triangleIndex].z] * hit.uv.y;
+			hit.normal = normalize(normals[indices[hit.triangleIndex].x] * (1.0f - hit.uv.x - hit.uv.y) +
+								   normals[indices[hit.triangleIndex].y] * hit.uv.x +
+								   normals[indices[hit.triangleIndex].z] * hit.uv.y);
 		} else hit.normal = triangleNormals[hit.triangleIndex];
 	}
+
+	inline constexpr auto getMaterialIndex() const { return materialIndex; }
 };
 
 class PercentLogger {

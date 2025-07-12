@@ -33,6 +33,22 @@ Scene::Scene(const std::string_view &filename) {
 			lights.emplace_back(j->as<JSONObject>());
 		}
 
+		auto &materialsJSON = jo["materials"].as<JSONArray>();
+		for (const auto &j : materialsJSON) {
+			auto &obj = j->as<JSONObject>();
+			if (obj["type"].as<JSONString>() == std::string_view("diffuse")) {
+				materials.emplace_back(std::make_unique<DiffuseMaterial>(obj));
+			} else if (obj["type"].as<JSONString>() == std::string_view("reflective")) {
+				materials.emplace_back(std::make_unique<ReflectiveMaterial>(obj));
+			} else if (obj["type"].as<JSONString>() == std::string_view("refractive")) {
+				materials.emplace_back(std::make_unique<RefractiveMaterial>(obj));
+			} else if (obj["type"].as<JSONString>() == std::string_view("constant")) {
+				materials.emplace_back(std::make_unique<ConstantMaterial>(obj));
+			} else {
+				throw std::runtime_error("Unknown material type: " + std::string(obj["type"].as<JSONString>()));
+			}
+		}
+
 	} catch (const std::exception &e) {
 		std::cerr << "Error loading scene: " << e.what() << std::endl;
 		clear();
@@ -45,23 +61,13 @@ RGB32F Scene::shadePixel(const ivec2 &pixel) const {
 	auto		r	= camera.generate_ray(ivec2(x, y), image.resolution());
 	auto		hit = intersect(r);
 	if (hit.t == std::numeric_limits<float>::max()) { return backgroundColor.xyz(); }
-	fillHitInfo(hit, r);
 
-	vec3 normal = hit.normal;
-	vec3 color	= vec3(0.f, 0.f, 0.f);
-	for (const auto &light : lights) {
-		vec3  lightDir = light.position - hit.pos;
-		float distance = length(lightDir);
+	const auto &object		  = objects[hit.objectIndex];
+	auto		materialIndex = object.getMaterialIndex();
+	const auto &material	  = materials[materialIndex];
+	fillHitInfo(hit, r, material->smooth);
 
-		auto shadowHit = intersect(Ray(hit.pos + normal * 0.001f, lightDir));
-		if (shadowHit.t > 0.f && shadowHit.t < distance) {
-			continue;	  // shadow
-		}
+	vec4 color = material->shade(hit, r, *this);
 
-		color += light.color * light.intensity * std::max(0.f, dot(normal, lightDir)) /
-				 (4.f * M_PIf * distance * distance * distance);
-	}
-	//color = normal;
-
-	return color;
+	return color.xyz();
 }

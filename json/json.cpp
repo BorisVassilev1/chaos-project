@@ -59,7 +59,7 @@ TokenizedString tokenize(const std::string& str) {
 		} else if (str.substr(i).starts_with("false")) {
 			tokens.push_back(Boolean);
 			tokens.back().data = (uint8_t*)0;
-			i += 3;
+			i += 4;
 		} else if (str.substr(i).starts_with("null")) {
 			tokens.push_back(Null);
 			i += 2;
@@ -112,7 +112,7 @@ std::unique_ptr<JSON> parseTreeToJSON(const std::unique_ptr<ParseNode<Token>>& n
 	} else if (node->value == Number) {
 		return std::make_unique<JSONNumber>(*reinterpret_cast<const double*>(&node->value.data));
 	} else if (node->value == Boolean) {
-		return std::make_unique<JSONBoolean>(*reinterpret_cast<const bool*>(&node->children[0]->value.data));
+		return std::make_unique<JSONBoolean>(*reinterpret_cast<const bool*>(&node->value.data));
 	} else if (node->value == Null) {
 		return std::make_unique<JSONNull>();
 	} else if (node->value == Object) {

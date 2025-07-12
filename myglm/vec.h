@@ -92,9 +92,7 @@ struct mul_scalar {
 template <class T>
 struct div_scalar {
 	const T&				 scalar;
-	FORCE_INLINE constexpr T operator()(const T& val) const {
-		return val / scalar;
-	}
+	FORCE_INLINE constexpr T operator()(const T& val) const { return val / scalar; }
 };
 
 template <class T, std::size_t N>
@@ -169,6 +167,18 @@ inline constexpr auto operator!=(const vec<T, N>& u, const vec<T, N>& v) {
 	return !(u == v);
 }
 
+template <class T>
+struct negate {
+	FORCE_INLINE constexpr T operator()(const T& val) const { return -val; }
+};
+
+template <class T, std::size_t N>
+inline constexpr auto operator-(const vec<T, N>& v) {
+	vec<T, N> result = v;
+	apply_inplace(result, negate<T>{});
+	return result;
+}
+
 template <class T, std::size_t N>
 std::ostream& operator<<(std::ostream& out, const vec<T, N>& v) {
 	out << "(";
@@ -203,11 +213,15 @@ inline constexpr auto normalize(const vec<T, N>& v) {
 	return v / len;
 }
 
+template <class T, std::size_t N>
+inline constexpr auto mix(const vec<T, N>& v1, const vec<T, N>& v2, T t) {
+	return v1 * (T(1.0) - t) + v2 * t;
+}
+
 #define VEC_SWIZZLE_2(name, a, b)                                                                                 \
 	inline constexpr auto name() { return vec<std::reference_wrapper<value_type>, 2>(std::ref(a), std::ref(b)); } \
-	inline constexpr auto name() const { return vec<value_type, 2>(a, b); } \
-	inline constexpr auto _##name() const { return vec<value_type, 2>(a, b); } 
-	
+	inline constexpr auto name() const { return vec<value_type, 2>(a, b); }                                       \
+	inline constexpr auto _##name() const { return vec<value_type, 2>(a, b); }
 
 #define VEC_SWIZZLE_3(name, a, b, c)                                                              \
 	inline constexpr auto name()                                                                  \
@@ -215,12 +229,12 @@ inline constexpr auto normalize(const vec<T, N>& v) {
 	{                                                                                             \
 		return vec<std::reference_wrapper<value_type>, 3>(std::ref(a), std::ref(b), std::ref(c)); \
 	}                                                                                             \
-	inline constexpr auto name() const { return vec<value_type, 3>(a, b, c); } \
+	inline constexpr auto name() const { return vec<value_type, 3>(a, b, c); }                    \
 	inline constexpr auto _##name() const { return vec<value_type, 3>(a, b, c); }
 
 #define VEC_SWIZZLE_4(name, a, b, c, d)                                                                        \
 	inline constexpr auto name() {                                                                             \
 		return vec<std::reference_wrapper<value_type>, 4>(std::ref(a), std::ref(b), std::ref(c), std::ref(d)); \
 	}                                                                                                          \
-	inline constexpr auto name() const { return vec<value_type, 4>(a, b, c, d); } \
+	inline constexpr auto name() const { return vec<value_type, 4>(a, b, c, d); }                              \
 	inline constexpr auto _##name() const { return vec<value_type, 4>(a, b, c, d); }

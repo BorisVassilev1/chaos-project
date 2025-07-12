@@ -28,5 +28,5 @@ int main(int argc, char** argv) {
 	sc.render();
 	sc.saveImage("output.ppm");
 
-	// system("fish -c 'open output.ppm'");
+	system("fish -c 'open output.ppm'");
 }

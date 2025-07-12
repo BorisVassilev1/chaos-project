@@ -9,7 +9,8 @@
 #include <json/json.hpp>
 #include <img/export.hpp>
 #include <ranges>
-#include "myglm/vec.h"
+#include <myglm/vec.h>
+#include <materials.hpp>
 
 class Scene {
    public:
@@ -20,14 +21,15 @@ class Scene {
 	ivec2 resolution;
 	float resolution_scale = 1.0f;
 
-	std::vector<PointLight> lights;
-	std::vector<Mesh>		objects;
+	std::vector<PointLight>				   lights;
+	std::vector<Mesh>					   objects;
+	std::vector<std::unique_ptr<Material>> materials;
 
 	auto intersect(const Ray &r) const {
 		RayHit hit;
 		for (const auto &[i, object] : std::views::enumerate(objects)) {
 			auto hitnew = object.intersect(r);
-			if (hitnew.t > 0.f && hitnew.t < hit.t) {
+			if (hitnew.t > 0.0001f && hitnew.t < hit.t) {
 				hit				= hitnew;
 				hit.objectIndex = i;
 			}
@@ -35,7 +37,9 @@ class Scene {
 		return hit;
 	}
 
-	auto fillHitInfo(RayHit &hit, const Ray &r) const { objects[hit.objectIndex].fillHitInfo(hit, r); }
+	auto fillHitInfo(RayHit &hit, const Ray &r, bool smooth = true) const {
+		objects[hit.objectIndex].fillHitInfo(hit, r, smooth);
+	}
 
 	Scene()							= default;
 	Scene(const Scene &)			= default;
@@ -59,15 +63,15 @@ class Scene {
 		PercentLogger logger("Rendering", image.getWidth() * image.getHeight());
 		// for (auto [x, y] : image.Iterate()) {
 		auto I = image.Iterate();
-		//std::for_each(std::execution::par_unseq, I.begin(), I.end(), [&](const auto &pair) {
-		std::for_each(I.begin(), I.end(), [&](const auto &pair) {
+		std::for_each(std::execution::par_unseq, I.begin(), I.end(), [&](const auto &pair) {
+			// std::for_each(I.begin(), I.end(), [&](const auto &pair) {
 			auto [x, y] = pair;
-			logger.step();
 
 			auto color = shadePixel(ivec2(x, y));
 
 			apply_inplace(color, [](float &c) { return std::clamp(c, 0.f, 1.f); });
 			image(x, y) = color.xyz();
+			logger.step();
 		});
 		logger.finish();
 	};

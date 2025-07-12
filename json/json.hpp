@@ -125,7 +125,6 @@ class JSONBoolean : public JSON {
 
 	operator bool() const { return value; }
 	operator bool&() { return value; }
-	operator const bool&() const { return value; }
 };
 
 class JSONNull : public JSON {
@@ -165,6 +164,13 @@ class JSONObject : public JSON {
 		if (it == properties.end()) { throw std::runtime_error(std::format("Key '{}' not found in JSON object", key)); }
 		return *it->second;
 	}
+
+	inline auto find(const std::string& key) const { return properties.find(key); }
+	inline auto find(const std::string& key) { return properties.find(key); }
+	inline auto begin() const { return properties.begin(); }
+	inline auto begin() { return properties.begin(); }
+	inline auto end() const { return properties.end(); }
+	inline auto end() { return properties.end(); }
 };
 
 class JSONArray : public JSON {
