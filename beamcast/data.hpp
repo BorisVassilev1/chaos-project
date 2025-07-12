@@ -54,9 +54,9 @@ struct Triangle {
 		inverseD = uv * uv - uu * vv;
 		inverseD = 1.0f / inverseD;
 		float u	 = (uv * wv - vv * wu) * inverseD;
-		if (u < 0.0 || u > 1.0) return RayHit();
+		if (u < 0.0 || u > 1.0) [[likely]] return RayHit();
 		float v = (uv * wu - uu * wv) * inverseD;
-		if (v < 0.0 || (u + v) > 1.0) return RayHit();
+		if (v < 0.0 || (u + v) > 1.0) [[likely]] return RayHit();
 
 		RayHit hit;
 		hit.t  = t;

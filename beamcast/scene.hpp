@@ -59,7 +59,8 @@ class Scene {
 		PercentLogger logger("Rendering", image.getWidth() * image.getHeight());
 		// for (auto [x, y] : image.Iterate()) {
 		auto I = image.Iterate();
-		std::for_each(std::execution::par_unseq, I.begin(), I.end(), [&](const auto &pair) {
+		//std::for_each(std::execution::par_unseq, I.begin(), I.end(), [&](const auto &pair) {
+		std::for_each(I.begin(), I.end(), [&](const auto &pair) {
 			auto [x, y] = pair;
 			logger.step();
 

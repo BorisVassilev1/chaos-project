@@ -11,9 +11,11 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
+	std::cout << "Loading scene from file: " << argv[1] << std::endl;
 	Scene sc(argv[1]);
+	std::cout << "Parsed Scene: " << argv[1] << std::endl;
 
-	if(argc > 2) {
+	if (argc > 2) {
 		try {
 			float scale = std::stof(argv[2]);
 			sc.setResolutionScale(scale);
@@ -26,5 +28,5 @@ int main(int argc, char** argv) {
 	sc.render();
 	sc.saveImage("output.ppm");
 
-	system("fish -c 'open output.ppm'");
+	// system("fish -c 'open output.ppm'");
 }
