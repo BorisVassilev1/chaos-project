@@ -1,6 +1,7 @@
 #include <scene.hpp>
 
 Scene::Scene(const std::string_view &filename) {
+	dbLog(dbg::LOG_DEBUG, "Loading scene from file: ", filename);
 	try {
 		auto json = JSONFromFile(filename);
 		if (json == nullptr) { throw std::runtime_error("Failed to load scene from file: " + std::string(filename)); }
@@ -48,10 +49,11 @@ Scene::Scene(const std::string_view &filename) {
 				throw std::runtime_error("Unknown material type: " + std::string(obj["type"].as<JSONString>()));
 			}
 		}
-
+		dbLog(dbg::LOG_DEBUG, "Scene loaded with ", objects.size(), " objects, ", lights.size(), " lights, and ",
+			  materials.size(), " materials.");
 	} catch (const std::exception &e) {
-		std::cerr << "Error loading scene: " << e.what() << std::endl;
 		clear();
+		throw;
 	}
 }
 

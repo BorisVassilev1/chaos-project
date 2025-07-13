@@ -4,6 +4,7 @@
 #include <atomic>
 #include <json/json.hpp>
 #include <mutex>
+#include <util/utils.hpp>
 
 struct Ray {
 	vec3 origin;
@@ -136,8 +137,7 @@ class Mesh {
 			materialIndex = 0;	   // Default to first material if not specified
 		}
 
-		std::cout << "Mesh created with " << vertices.size() << " vertices and " << indices.size() << " triangles."
-				  << std::endl;
+		dbLog(dbg::LOG_DEBUG, "Mesh created with ", vertices.size(), " vertices and ", indices.size(), " triangles.");
 	}
 
 	void recalculateNormals() {
@@ -202,19 +202,20 @@ class PercentLogger {
    public:
 	PercentLogger(const std::string& name, std::size_t total) : name(name), total(total), current(0) {
 		std::lock_guard lock(mutex);
-		std::cout << name << ": 0%" << std::flush;
+		dbLogR(dbg::LOG_INFO, name, ": 0%");
 	}
 
 	inline constexpr void step() {
 		current.fetch_add(1, std::memory_order_relaxed);
 		if (current.load(std::memory_order_relaxed) % (total / 100) == 0) {
 			std::lock_guard lock(mutex);
-			std::cout << "\r" << name << ": " << (current * 100 / total) << "%" << std::flush;
+			dbLogR(dbg::LOG_INFO, name, ": ", (current * 100 / total), "%");
 		}
 	}
 
 	inline constexpr void finish() {
 		std::lock_guard lock(mutex);
 		std::cout << "\r" << name << ": 100%" << std::endl;
+		dbLogR(dbg::LOG_INFO, name, " : 100%");
 	}
 };

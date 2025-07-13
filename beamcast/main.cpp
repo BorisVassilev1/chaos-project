@@ -11,9 +11,13 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
-	std::cout << "Loading scene from file: " << argv[1] << std::endl;
-	Scene sc(argv[1]);
-	std::cout << "Parsed Scene: " << argv[1] << std::endl;
+	Scene sc;
+	try {
+		sc = Scene(argv[1]);
+	} catch (const std::exception& e) {
+		dbLog(dbg::LOG_ERROR, "Failed to load scene: ", e.what());
+		return 1;
+	}
 
 	if (argc > 2) {
 		try {

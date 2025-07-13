@@ -78,7 +78,7 @@ class Scene {
 
 	void saveImage(const std::string_view &filename) const {
 		exportToFile(image, filename, export_PPM_BIN<RGB32F>);
-		std::cout << "Image saved to " << filename << std::endl;
+		dbLog(dbg::LOG_INFO, "Image saved to ", filename, "\n");
 	}
 
 	void setResolutionScale(float scale) {
