@@ -9,8 +9,12 @@
 struct Ray {
 	vec3 origin;
 	vec3 direction;
+	enum Type {
+		Primary,
+		Shadow,
+	} type = Type::Primary;
 
-	Ray(const vec3& o, const vec3& d) : origin(o), direction(d) {}
+	Ray(const vec3& o, const vec3& d, Type t = Primary) : origin(o), direction(d), type(t) {}
 
 	inline constexpr auto at(float t) const { return origin + direction * t; }
 };
@@ -190,6 +194,11 @@ class Mesh {
 	}
 
 	inline constexpr auto getMaterialIndex() const { return materialIndex; }
+
+	inline constexpr auto& getVertices() const { return vertices; }
+	inline constexpr auto& getNormals() const { return normals; }
+	inline constexpr auto& getIndices() const { return indices; }
+	inline constexpr auto& getTriangleNormals() const { return triangleNormals; }
 };
 
 class PercentLogger {

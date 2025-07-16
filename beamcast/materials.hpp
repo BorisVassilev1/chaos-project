@@ -6,10 +6,13 @@ class Scene;
 
 class Material {
    public:
-	bool smooth = false;
+	bool smooth : 1 = false;
+	bool castsShadows : 1 = true;
+	bool receivesShadows : 1 = true;
 
 	Material() = default;
-	Material(const JSONObject &obj) {
+	Material(const JSONObject &obj, bool castsShadows = true, bool receivesShadows = true)
+	    : castsShadows(castsShadows), receivesShadows(receivesShadows) {
 		if (obj.find("smooth_shading") != obj.end()) { smooth = obj["smooth_shading"].as<JSONBoolean>(); }
 	}
 
@@ -24,7 +27,7 @@ class DiffuseMaterial : public Material {
 
 	DiffuseMaterial(const vec3 &albedo) : albedo(albedo) {}
 
-	DiffuseMaterial(const JSONObject &obj) : Material(obj) {
+	DiffuseMaterial(const JSONObject &obj) : Material(obj, true, true) {
 		const auto &albedoJSON = obj["albedo"].as<JSONArray>();
 		albedo = vec3{albedoJSON[0].as<JSONNumber>(), albedoJSON[1].as<JSONNumber>(), albedoJSON[2].as<JSONNumber>()};
 	}
@@ -38,7 +41,7 @@ class ReflectiveMaterial : public Material {
 
 	ReflectiveMaterial(const vec3 &albedo) : albedo(albedo) {}
 
-	ReflectiveMaterial(const JSONObject &obj) : Material(obj) {
+	ReflectiveMaterial(const JSONObject &obj) : Material(obj, true, true) {
 		const auto &colorJSON = obj["albedo"].as<JSONArray>();
 		albedo = vec3{colorJSON[0].as<JSONNumber>(), colorJSON[1].as<JSONNumber>(), colorJSON[2].as<JSONNumber>()};
 	}
@@ -53,7 +56,7 @@ class RefractiveMaterial : public Material {
 
 	RefractiveMaterial(const vec3 &albedo) : albedo(albedo) {}
 
-	RefractiveMaterial(const JSONObject &obj) : Material(obj) {
+	RefractiveMaterial(const JSONObject &obj) : Material(obj, false, false) {
 		if (obj.find("ior") != obj.end()) {
 			ior = obj["ior"].as<JSONNumber>();
 		} else {
@@ -76,7 +79,7 @@ class ConstantMaterial : public Material {
 
 	ConstantMaterial(const vec3 &albedo) : albedo(albedo) {}
 
-	ConstantMaterial(const JSONObject &obj) : Material(obj) {
+	ConstantMaterial(const JSONObject &obj) : Material(obj, true, false) {
 		const auto &albedoJSON = obj["albedo"].as<JSONArray>();
 		albedo = vec3{albedoJSON[0].as<JSONNumber>(), albedoJSON[1].as<JSONNumber>(), albedoJSON[2].as<JSONNumber>()};
 	}

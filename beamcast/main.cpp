@@ -20,6 +20,12 @@ int main(int argc, char** argv) {
 	}
 
 	if (argc > 2) {
+		if (argv[2] == std::string("-")) {
+			std::ofstream ofs("output.obj");
+			sc.serializeOBJ(ofs);
+			std::cout << "Scene exported to output.obj" << std::endl;
+			return 0;
+		}
 		try {
 			float scale = std::stof(argv[2]);
 			sc.setResolutionScale(scale);

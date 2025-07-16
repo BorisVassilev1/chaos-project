@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <beamcast/data.hpp>
 #include <execution>
-#include <limits>
 #include <camera.hpp>
 #include <img/image.hpp>
 #include <json/json.hpp>
@@ -28,6 +27,8 @@ class Scene {
 	auto intersect(const Ray &r) const {
 		RayHit hit;
 		for (const auto &[i, object] : std::views::enumerate(objects)) {
+			const auto &material = materials[object.getMaterialIndex()];
+			if (r.type == Ray::Type::Shadow && !material->castsShadows) continue;
 			auto hitnew = object.intersect(r);
 			if (hitnew.t > 0.0001f && hitnew.t < hit.t) {
 				hit				= hitnew;
@@ -61,7 +62,7 @@ class Scene {
 
 	void render() {
 		PercentLogger logger("Rendering", image.getWidth() * image.getHeight());
-		// for (auto [x, y] : image.Iterate()) {
+		camera.setResolution(image.resolution());
 		auto I = image.Iterate();
 		std::for_each(std::execution::par_unseq, I.begin(), I.end(), [&](const auto &pair) {
 			// std::for_each(I.begin(), I.end(), [&](const auto &pair) {
@@ -85,5 +86,23 @@ class Scene {
 		if (scale <= 0.f) { throw std::invalid_argument("Resolution scale must be greater than 0"); }
 		resolution_scale = scale;
 		image.resize(resolution.x * scale, resolution.y * scale);
+	}
+
+	void serializeOBJ(std::ostream &os) const {
+		std::size_t offset = 0;
+		for (const auto &object : objects) {
+			for (const auto &vertex : object.getVertices()) {
+				os << "v " << vertex.x << " " << vertex.y << " " << vertex.z << "\n";
+			}
+			for (const auto &normal : object.getNormals()) {
+				os << "vn " << normal.x << " " << normal.y << " " << normal.z << "\n";
+			}
+			for (const auto &index : object.getIndices()) {
+				os << "f " << index.x + 1 + offset << "//" << index.x + 1 + offset << " " << index.y + 1 + offset
+				   << "//" << index.y + 1 + offset << " " << index.z + 1 + offset << "//" << index.z + 1 + offset
+				   << "\n";
+			}
+			offset += object.getVertices().size();
+		}
 	}
 };

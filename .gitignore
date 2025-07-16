@@ -6,3 +6,7 @@
 build/
 *.ppm
 scenes/*
+*.png
+*.obj
+*.blend*
+.cache/

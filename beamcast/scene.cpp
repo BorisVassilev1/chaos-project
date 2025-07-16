@@ -22,6 +22,7 @@ Scene::Scene(const std::string_view &filename) {
 
 		auto &cameraJSON = jo["camera"].as<JSONObject>();
 		this->camera	 = Camera(cameraJSON);
+		this->camera.setResolution(image.resolution());
 
 		auto &objectsJSON = jo["objects"].as<JSONArray>();
 		for (const auto &j : objectsJSON) {
@@ -60,7 +61,7 @@ Scene::Scene(const std::string_view &filename) {
 RGB32F Scene::shadePixel(const ivec2 &pixel) const {
 	const auto &x	= pixel.x;
 	const auto &y	= pixel.y;
-	auto		r	= camera.generate_ray(ivec2(x, y), image.resolution());
+	auto		r	= camera.generate_ray(ivec2(x, y));
 	auto		hit = intersect(r);
 	if (hit.t == std::numeric_limits<float>::max()) { return backgroundColor.xyz(); }
 

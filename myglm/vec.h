@@ -209,7 +209,7 @@ inline constexpr auto length(const vec<T, N>& v) {
 template <class T, std::size_t N>
 inline constexpr auto normalize(const vec<T, N>& v) {
 	auto len = length(v);
-	if (len == 0) return v;		// Avoid division by zero
+	if (len == 1e-6f) return v;		// Avoid division by zero
 	return v / len;
 }
 

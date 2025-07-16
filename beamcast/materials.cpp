@@ -12,16 +12,17 @@ vec4 DiffuseMaterial::shade(const RayHit &hit, const Ray &, const Scene &scene) 
 	for (const auto &light : scene.lights) {
 		vec3  lightDir	 = light.position - hit.pos;
 		float distanceSq = lengthSquared(lightDir);
+		float distance	 = std::sqrt(distanceSq);
+		lightDir /= distance;
 
-		auto shadowHit = scene.intersect(Ray(hit.pos + hit.normal * EPS, lightDir));
-		if (shadowHit.t > 0.f && shadowHit.t * shadowHit.t < distanceSq - EPS) {
-			//	continue;	  // shadow
+		if (this->receivesShadows) {
+			auto shadowHit = scene.intersect(Ray(hit.pos + hit.normal * EPS, lightDir, Ray::Type::Shadow));
+			if (shadowHit.t > 0.1f && shadowHit.t * shadowHit.t < distanceSq - EPS) {
+				continue;	  // shadow
+			}
 		}
 
-		float distance = std::sqrt(distanceSq);
-
-		color += light.color * light.intensity * std::max(0.f, dot(hit.normal, lightDir)) /
-				 (4.f * M_PIf * distanceSq * distance);
+		color += light.color * light.intensity * std::max(0.f, dot(hit.normal, lightDir)) / (4.f * M_PIf * distanceSq);
 	}
 	return vec4(color * this->albedo, 1.0f);
 }
@@ -44,8 +45,8 @@ vec4 ReflectiveMaterial::shade(const RayHit &hit, const Ray &ray, const Scene &s
 	return vec4(color * this->albedo, 1.0f);
 }
 
-static inline float F0(float ior) {
-	float f = (ior - 1.0f) / (ior + 1.0f);
+static inline float F0(float ior1, float ior2) {
+	float f = (ior1 - ior2) / (ior1 + ior2);
 	return f * f;
 }
 
@@ -76,18 +77,30 @@ static inline float fresnelReflectAmount(float n1, float n2, vec3 normal, vec3 i
 
 vec4 RefractiveMaterial::shade(const RayHit &hit, const Ray &ray, const Scene &scene) const {
 	if (hit.depth >= MAX_DEPTH) { return scene.backgroundColor; }
-	vec3  color			  = 0;
-	float dotNormal		  = dot(hit.normal, ray.direction);
-	bool  isEntering	  = dotNormal < 0.0f;
-	float eta			  = isEntering ? 1.0f / ior : ior;	   // Snell's law
-	vec3  correctedNormal = isEntering ? hit.normal : -hit.normal;
-	vec3  normalEPS		  = correctedNormal * EPS;
+	vec3  color		 = 0;
+	float dotNormal	 = dot(hit.normal, ray.direction);
+	bool  isEntering = dotNormal < 0.0f;
+	vec3  normal	 = hit.normal;
 
-	Ray reflectedRay(hit.pos + normalEPS, normalize(reflect(ray.direction, correctedNormal)));
-	Ray refractedRay(hit.pos - normalEPS, normalize(refract(ray.direction, correctedNormal, eta)));
+	float ior1 = 1.0f;
+	float ior2 = this->ior;
 
-	float fresnel = fresnelReflectAmount(isEntering ? 1.0f : ior, isEntering ? ior : 1.0f, hit.normal, ray.direction,
-										 F0(ior), 1.0f);
+	if (!isEntering) {
+		std::swap(ior1, ior2);
+		dotNormal = -dotNormal;
+		normal	  = -normal;
+	}
+
+	float eta		= ior1 / ior2;	   // Snell's law
+	vec3  normalEPS = normal * EPS;
+
+	Ray reflectedRay(hit.pos + normalEPS, normalize(reflect(ray.direction, normal)));
+	Ray refractedRay(hit.pos - normalEPS, normalize(refract(ray.direction, normal, eta)));
+
+	float f0	  = F0(ior1, ior2);
+	float fresnel = fresnelReflectAmount(ior1, ior2, normal, ray.direction, f0, 1.0f);
+	// float fresnel = 0.5f * std::pow(1.0f + dot(ray.direction, normal), 5.0f);
+	// return vec4(fresnel, fresnel, fresnel, 1.0f);
 
 	RayHit reflectedHit	   = scene.intersect(reflectedRay);
 	vec3   reflectionColor = vec3(0);
@@ -103,7 +116,7 @@ vec4 RefractiveMaterial::shade(const RayHit &hit, const Ray &ray, const Scene &s
 	}
 
 	vec3 refractionColor = vec3(0);
-	if (refractedRay.direction != vec3(0)) {
+	if (refractedRay.direction != vec3(0)) [[likely]] {
 		RayHit refractedHit = scene.intersect(refractedRay);
 		if (refractedHit.objectIndex != -1u) {
 			refractedHit.depth = hit.depth + 1;
@@ -120,7 +133,5 @@ vec4 RefractiveMaterial::shade(const RayHit &hit, const Ray &ray, const Scene &s
 		color = reflectionColor;
 	}
 
-	// return vec4(fresnel, fresnel, fresnel, 1.0f);
-	// if (dotNormal > 0.001f) color = correctedNormal;
 	return vec4(color * this->albedo, 1.0f);
 }
