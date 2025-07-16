@@ -7,7 +7,8 @@
 
 int main(int argc, char** argv) {
 	if (argc <= 1) {
-		std::cerr << "Usage: " << argv[0] << " <scene_file>" << std::endl;
+		dbLog(dbg::LOG_ERROR, "No scene file provided.");
+		dbLog(dbg::LOG_ERROR, "Usage: ", argv[0], " <scene_file> [resolution_scale]");
 		return 1;
 	}
 
@@ -23,14 +24,14 @@ int main(int argc, char** argv) {
 		if (argv[2] == std::string("-")) {
 			std::ofstream ofs("output.obj");
 			sc.serializeOBJ(ofs);
-			std::cout << "Scene exported to output.obj" << std::endl;
+			dbLog(dbg::LOG_INFO, "Scene exported to output.obj");
 			return 0;
 		}
 		try {
 			float scale = std::stof(argv[2]);
 			sc.setResolutionScale(scale);
 		} catch (const std::exception& e) {
-			std::cerr << "Invalid resolution scale: " << e.what() << std::endl;
+			dbLog(dbg::LOG_ERROR, "Invalid resolution scale: ", e.what());
 			return 1;
 		}
 	}

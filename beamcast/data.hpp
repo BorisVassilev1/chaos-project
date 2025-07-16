@@ -104,6 +104,7 @@ class Mesh {
 
 	Mesh(const JSONObject& obj) {
 		auto& verticesJSON = obj["vertices"].as<JSONArray>();
+		this->vertices.reserve(verticesJSON.size() / 3);
 		for (unsigned int i = 0; i < verticesJSON.size(); i += 3) {
 			if (i + 2 >= verticesJSON.size()) {
 				throw std::runtime_error("Invalid number of vertices in triangle object");
@@ -112,10 +113,13 @@ class Mesh {
 					   verticesJSON[i + 2].as<JSONNumber>()};
 			this->vertices.push_back(v0);
 		}
+
 		auto& indicesJSON = obj["triangles"].as<JSONArray>();
 		if (indicesJSON.size() % 3 != 0) {
 			throw std::runtime_error("Indices must be a multiple of 3 for triangle objects");
 		}
+
+		this->indices.reserve(indicesJSON.size() / 3);
 		for (unsigned int i = 0; i < indicesJSON.size(); i += 3) {
 			if (i + 2 >= indicesJSON.size()) {
 				throw std::runtime_error("Invalid number of indices in triangle object");
@@ -163,8 +167,7 @@ class Mesh {
 				normal	   = normalize(normal);
 				normals[i] = normal;
 			} else {
-				std::cerr << "Warning: Normal for vertex with no triangles is zero, setting to default normal."
-						  << std::endl;
+				dbLog(dbg::LOG_WARNING, "Normal for vertex ", i, " has no triangles, setting to default normal.");
 			}
 		}
 	}
@@ -224,7 +227,6 @@ class PercentLogger {
 
 	inline constexpr void finish() {
 		std::lock_guard lock(mutex);
-		std::cout << "\r" << name << ": 100%" << std::endl;
 		dbLogR(dbg::LOG_INFO, name, " : 100%");
 	}
 };
