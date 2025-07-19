@@ -116,16 +116,21 @@ class Mesh {
 			this->vertices.push_back(v0);
 		}
 
-		auto& texCoordsJSON = obj["uvs"].as<JSONArray>();
 		this->texCoords.reserve(vertices.size());
-		assert(texCoordsJSON.size() == verticesJSON.size());
-		for (unsigned int i = 0; i < texCoordsJSON.size(); i += 3) {
-			if (i + 2 >= texCoordsJSON.size()) {
-				throw std::runtime_error("Invalid number of texture coordinates in triangle object");
+		if (obj.find("uvs") == obj.end()) {
+			texCoords.resize(vertices.size(), vec3(0.0f));
+			dbLog(dbg::LOG_WARNING, "No texture coordinates found in triangle object, using default ones.");
+		} else {
+			auto& texCoordsJSON = obj["uvs"].as<JSONArray>();
+			assert(texCoordsJSON.size() == verticesJSON.size());
+			for (unsigned int i = 0; i < texCoordsJSON.size(); i += 3) {
+				if (i + 2 >= texCoordsJSON.size()) {
+					throw std::runtime_error("Invalid number of texture coordinates in triangle object");
+				}
+				vec3 uv = {texCoordsJSON[i].as<JSONNumber>(), texCoordsJSON[i + 1].as<JSONNumber>(),
+						   texCoordsJSON[i + 2].as<JSONNumber>()};
+				this->texCoords.push_back(uv);
 			}
-			vec3 uv = {texCoordsJSON[i].as<JSONNumber>(), texCoordsJSON[i + 1].as<JSONNumber>(),
-					   texCoordsJSON[i + 2].as<JSONNumber>()};
-			this->texCoords.push_back(uv);
 		}
 
 		auto& indicesJSON = obj["triangles"].as<JSONArray>();

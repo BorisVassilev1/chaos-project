@@ -25,6 +25,7 @@ class Material {
 class DiffuseMaterial : public Material {
    public:
 	Texture *albedo;
+	vec3  albedoColor;
 
 	//DiffuseMaterial(const vec3 &albedo) : albedo(albedo) {}
 

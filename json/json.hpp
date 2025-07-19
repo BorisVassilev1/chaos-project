@@ -84,6 +84,11 @@ class JSON {
 		}
 		return static_cast<const T&>(*this);
 	}
+
+	template <class T>
+	inline bool is() const {
+		return type == T::type;
+	}
 };
 
 class JSONNumber : public JSON {

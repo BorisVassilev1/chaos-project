@@ -7,8 +7,20 @@ const float EPS		  = 0.001f;
 const int	MAX_DEPTH = 5;
 
 DiffuseMaterial::DiffuseMaterial(const JSONObject &obj, const Scene &scene) : Material(obj, true, true) {
-	std::string_view textureName = obj["albedo"].as<JSONString>();
-	albedo						 = scene.getTexture(textureName);
+	const auto &albedoJSON = obj["albedo"];
+	if (albedoJSON.is<JSONArray>()) {
+		const auto &colorJSON = albedoJSON.as<JSONArray>();
+		this->albedoColor =
+			vec3{colorJSON[0].as<JSONNumber>(), colorJSON[1].as<JSONNumber>(), colorJSON[2].as<JSONNumber>()};
+		this->albedo = nullptr;
+		return;
+	} else if (albedoJSON.is<JSONString>()) {
+		this->albedoColor			 = vec3(0, 0, 0);
+		std::string_view textureName = obj["albedo"].as<JSONString>();
+		albedo						 = scene.getTexture(textureName);
+	} else {
+		throw std::runtime_error("Invalid albedo type for DiffuseMaterial");
+	}
 }
 
 vec4 DiffuseMaterial::shade(const RayHit &hit, const Ray &, const Scene &scene) const {
@@ -29,7 +41,12 @@ vec4 DiffuseMaterial::shade(const RayHit &hit, const Ray &, const Scene &scene) 
 
 		color += light.color * light.intensity * std::max(0.f, dot(hit.normal, lightDir)) / (4.f * M_PIf * distanceSq);
 	}
-	return vec4(color * this->albedo->sample(hit), 1.0f);
+	if (this->albedo) {
+		color *= this->albedo->sample(hit);
+	} else {
+		color *= this->albedoColor;
+	}
+	return vec4(color, 1.0f);
 }
 
 vec4 ReflectiveMaterial::shade(const RayHit &hit, const Ray &ray, const Scene &scene) const {

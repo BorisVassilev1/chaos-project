@@ -36,22 +36,24 @@ Scene::Scene(const std::string_view &filename) {
 			lights.emplace_back(j->as<JSONObject>());
 		}
 
-		auto &texturesJSON = jo["textures"].as<JSONArray>();
-		dbLog(dbg::LOG_DEBUG, "Found ", texturesJSON.size(), " textures in scene file.");
-		for (const auto &j : texturesJSON) {
-			auto &obj = j->as<JSONObject>();
-			if (obj["type"].as<JSONString>() == std::string_view("albedo")) {
-				textures.emplace_back(new ConstantTexure(obj));
-			} else if (obj["type"].as<JSONString>() == std::string_view("checker")) {
-				textures.emplace_back(new CheckerTexture(obj));
-			} else if (obj["type"].as<JSONString>() == std::string_view("edges")) {
-				textures.emplace_back(new EdgeTexture(obj));
-			} else if (obj["type"].as<JSONString>() == std::string_view("bitmap")) {
-				textures.emplace_back(new ImageTexture(obj, this->scenePath));
-			} else {
-				throw std::runtime_error("Unknown texture type: " + std::string(obj["type"].as<JSONString>()));
+		if (jo.find("textures") != jo.end()) {
+			auto &texturesJSON = jo["textures"].as<JSONArray>();
+			dbLog(dbg::LOG_DEBUG, "Found ", texturesJSON.size(), " textures in scene file.");
+			for (const auto &j : texturesJSON) {
+				auto &obj = j->as<JSONObject>();
+				if (obj["type"].as<JSONString>() == std::string_view("albedo")) {
+					textures.emplace_back(new ConstantTexure(obj));
+				} else if (obj["type"].as<JSONString>() == std::string_view("checker")) {
+					textures.emplace_back(new CheckerTexture(obj));
+				} else if (obj["type"].as<JSONString>() == std::string_view("edges")) {
+					textures.emplace_back(new EdgeTexture(obj));
+				} else if (obj["type"].as<JSONString>() == std::string_view("bitmap")) {
+					textures.emplace_back(new ImageTexture(obj, this->scenePath));
+				} else {
+					throw std::runtime_error("Unknown texture type: " + std::string(obj["type"].as<JSONString>()));
+				}
+				textureMap[obj["name"].as<JSONString>()] = textures.back();
 			}
-			textureMap[obj["name"].as<JSONString>()] = textures.back();
 		}
 
 		auto &materialsJSON = jo["materials"].as<JSONArray>();
