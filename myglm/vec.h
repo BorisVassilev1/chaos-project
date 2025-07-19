@@ -218,6 +218,16 @@ inline constexpr auto mix(const vec<T, N>& v1, const vec<T, N>& v2, T t) {
 	return v1 * (T(1.0) - t) + v2 * t;
 }
 
+template <class T, std::size_t N>
+inline constexpr auto clamp(const vec<T, N>& v, const T& minVal, const T& maxVal) {
+	return apply(v, [&](const T& val) { return std::clamp(val, minVal, maxVal); });
+}
+
+template <class T, std::size_t N>
+inline constexpr auto sqrt(const vec<T, N>& v) {
+	return apply(v, [](const T& val) { return std::sqrt(val); });
+}
+
 #define VEC_SWIZZLE_2(name, a, b)                                                                                 \
 	inline constexpr auto name() { return vec<std::reference_wrapper<value_type>, 2>(std::ref(a), std::ref(b)); } \
 	inline constexpr auto name() const { return vec<value_type, 2>(a, b); }                                       \

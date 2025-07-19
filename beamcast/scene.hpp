@@ -1,6 +1,9 @@
 #pragma once
 
 #include <algorithm>
+#include <filesystem>
+#include <unordered_map>
+
 #include <beamcast/data.hpp>
 #include <execution>
 #include <camera.hpp>
@@ -23,6 +26,10 @@ class Scene {
 	std::vector<PointLight>				   lights;
 	std::vector<Mesh>					   objects;
 	std::vector<std::unique_ptr<Material>> materials;
+	std::vector<Texture *>			   textures;
+	std::unordered_map<std::string, Texture *> textureMap;
+
+	std::filesystem::path scenePath;
 
 	auto intersect(const Ray &r) const {
 		RayHit hit;
@@ -104,5 +111,13 @@ class Scene {
 			}
 			offset += object.getVertices().size();
 		}
+	}
+
+	Texture *getTexture(const std::string_view &name) const {
+		auto it = textureMap.find(std::string(name)); // TODO: use std::string_view for better performance
+		if (it != textureMap.end()) {
+			return it->second;
+		}
+		throw std::runtime_error(std::string("Texture not found: ") + std::string(name));
 	}
 };

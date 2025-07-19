@@ -6,6 +6,11 @@
 const float EPS		  = 0.001f;
 const int	MAX_DEPTH = 5;
 
+DiffuseMaterial::DiffuseMaterial(const JSONObject &obj, const Scene &scene) : Material(obj, true, true) {
+	std::string_view textureName = obj["albedo"].as<JSONString>();
+	albedo						 = scene.getTexture(textureName);
+}
+
 vec4 DiffuseMaterial::shade(const RayHit &hit, const Ray &, const Scene &scene) const {
 	if (hit.depth >= MAX_DEPTH) { return scene.backgroundColor; }
 	vec3 color = 0;
@@ -24,7 +29,7 @@ vec4 DiffuseMaterial::shade(const RayHit &hit, const Ray &, const Scene &scene) 
 
 		color += light.color * light.intensity * std::max(0.f, dot(hit.normal, lightDir)) / (4.f * M_PIf * distanceSq);
 	}
-	return vec4(color * this->albedo, 1.0f);
+	return vec4(color * this->albedo->sample(hit), 1.0f);
 }
 
 vec4 ReflectiveMaterial::shade(const RayHit &hit, const Ray &ray, const Scene &scene) const {

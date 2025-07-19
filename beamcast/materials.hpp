@@ -1,18 +1,19 @@
 #pragma once
 
 #include <data.hpp>
+#include "textures.hpp"
 
 class Scene;
 
 class Material {
    public:
-	bool smooth : 1 = false;
-	bool castsShadows : 1 = true;
+	bool smooth : 1			 = false;
+	bool castsShadows : 1	 = true;
 	bool receivesShadows : 1 = true;
 
 	Material() = default;
 	Material(const JSONObject &obj, bool castsShadows = true, bool receivesShadows = true)
-	    : castsShadows(castsShadows), receivesShadows(receivesShadows) {
+		: castsShadows(castsShadows), receivesShadows(receivesShadows) {
 		if (obj.find("smooth_shading") != obj.end()) { smooth = obj["smooth_shading"].as<JSONBoolean>(); }
 	}
 
@@ -23,15 +24,11 @@ class Material {
 
 class DiffuseMaterial : public Material {
    public:
-	vec3 albedo;
+	Texture *albedo;
 
-	DiffuseMaterial(const vec3 &albedo) : albedo(albedo) {}
+	//DiffuseMaterial(const vec3 &albedo) : albedo(albedo) {}
 
-	DiffuseMaterial(const JSONObject &obj) : Material(obj, true, true) {
-		const auto &albedoJSON = obj["albedo"].as<JSONArray>();
-		albedo = vec3{albedoJSON[0].as<JSONNumber>(), albedoJSON[1].as<JSONNumber>(), albedoJSON[2].as<JSONNumber>()};
-	}
-
+	DiffuseMaterial(const JSONObject &obj, const Scene &scene);
 	vec4 shade(const RayHit &hit, const Ray &, const Scene &scene) const override;
 };
 

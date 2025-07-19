@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.10)
 
 set(CMAKE_CXX_STANDARD 26)
 
-file(GLOB_RECURSE sources ./*.cpp ./*.c ../json/json.cpp)
+file(GLOB_RECURSE sources ./*.cpp ./*.c ../json/json.cpp ../img/*.cpp)
+
+message("Sources found: ${sources}")
 
 add_executable(main ${sources})
 

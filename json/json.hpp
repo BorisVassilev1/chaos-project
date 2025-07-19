@@ -55,6 +55,7 @@ class JSONParser : public Parser<Token> {
 enum class JSONType { NONE, String, Number, Boolean, Null, Object, Array };
 
 std::ostream& operator<<(std::ostream& out, const JSONType& type);
+std::string_view toString(JSONType type);
 
 template <>
 struct std::formatter<JSONType> : ostream_formatter {};
@@ -72,14 +73,14 @@ class JSON {
 	template <class T>
 	inline auto& as() {
 		if (type != T::type) {
-			throw std::runtime_error(std::format("Cannot cast JSON of type {} to {}", static_cast<int>(type), T::type));
+			throw std::runtime_error(std::format("Cannot cast JSON of type {} to {}", type, T::type));
 		}
 		return static_cast<T&>(*this);
 	}
 	template <class T>
 	inline const auto& as() const {
 		if (type != T::type) {
-			throw std::runtime_error(std::format("Cannot cast JSON of type {} to {}", static_cast<int>(type), T::type));
+			throw std::runtime_error(std::format("Cannot cast JSON of type {} to {}", type, T::type));
 		}
 		return static_cast<const T&>(*this);
 	}

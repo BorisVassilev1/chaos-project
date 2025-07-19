@@ -27,6 +27,7 @@ struct RayHit {
 	vec2		 uv;
 	unsigned int objectIndex = -1;
 	unsigned int depth		 = 0;
+	vec3		 texCoords	 = 0;
 };
 
 struct Triangle {
@@ -94,6 +95,7 @@ struct PointLight {
 class Mesh {
 	std::vector<vec3>  vertices;
 	std::vector<vec3>  normals;
+	std::vector<vec3>  texCoords;
 	std::vector<vec3>  triangleNormals;
 	std::vector<ivec3> indices;
 
@@ -112,6 +114,18 @@ class Mesh {
 			vec3 v0 = {verticesJSON[i].as<JSONNumber>(), verticesJSON[i + 1].as<JSONNumber>(),
 					   verticesJSON[i + 2].as<JSONNumber>()};
 			this->vertices.push_back(v0);
+		}
+
+		auto& texCoordsJSON = obj["uvs"].as<JSONArray>();
+		this->texCoords.reserve(vertices.size());
+		assert(texCoordsJSON.size() == verticesJSON.size());
+		for (unsigned int i = 0; i < texCoordsJSON.size(); i += 3) {
+			if (i + 2 >= texCoordsJSON.size()) {
+				throw std::runtime_error("Invalid number of texture coordinates in triangle object");
+			}
+			vec3 uv = {texCoordsJSON[i].as<JSONNumber>(), texCoordsJSON[i + 1].as<JSONNumber>(),
+					   texCoordsJSON[i + 2].as<JSONNumber>()};
+			this->texCoords.push_back(uv);
 		}
 
 		auto& indicesJSON = obj["triangles"].as<JSONArray>();
@@ -194,6 +208,10 @@ class Mesh {
 								   normals[indices[hit.triangleIndex].y] * hit.uv.x +
 								   normals[indices[hit.triangleIndex].z] * hit.uv.y);
 		} else hit.normal = triangleNormals[hit.triangleIndex];
+
+		hit.texCoords = texCoords[indices[hit.triangleIndex].x] * (1.0f - hit.uv.x - hit.uv.y) +
+						texCoords[indices[hit.triangleIndex].y] * hit.uv.x +
+						texCoords[indices[hit.triangleIndex].z] * hit.uv.y;
 	}
 
 	inline constexpr auto getMaterialIndex() const { return materialIndex; }

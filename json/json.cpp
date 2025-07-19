@@ -106,6 +106,18 @@ std::ostream& operator<<(std::ostream& out, const JSONType& type) {
 	return out;
 }
 
+std::string_view toString(JSONType type) {
+	switch (type) {
+		case JSONType::String: return "String";
+		case JSONType::Number: return "Number";
+		case JSONType::Boolean: return "Boolean";
+		case JSONType::Null: return "Null";
+		case JSONType::Object: return "Object";
+		case JSONType::Array: return "Array";
+		default: return "Unknown";
+	}
+}
+
 std::unique_ptr<JSON> parseTreeToJSON(const std::unique_ptr<ParseNode<Token>>& node) {
 	if (node->value == String) {
 		return std::make_unique<JSONString>(*reinterpret_cast<std::string*>(node->value.data));
