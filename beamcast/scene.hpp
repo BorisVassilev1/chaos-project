@@ -11,6 +11,8 @@
 #include <ranges>
 #include <myglm/vec.h>
 #include <materials.hpp>
+#include "bvh.hpp"
+#include "mesh.hpp"
 
 class Scene {
    public:

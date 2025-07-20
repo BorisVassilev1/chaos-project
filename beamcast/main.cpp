@@ -13,6 +13,7 @@ single thread:		315556 ms
 par_unseq:			56904 ms
 par:				57249 ms
 sectors:			56298 ms
+bvh:				177ms
 */
 
 int main(int argc, char** argv) {
@@ -46,7 +47,17 @@ int main(int argc, char** argv) {
 		}
 	}
 
-	Renderer rend(sc, resolution_scale);
+	int threadCount = std::thread::hardware_concurrency();
+	if(argc > 3) {
+		try{
+			threadCount = std::stoi(argv[3]);
+		} catch (const std::exception& e) {
+			dbLog(dbg::LOG_ERROR, "Invalid thread count: ", e.what());
+			return 1;
+		}
+	}
+
+	Renderer rend(sc, resolution_scale, threadCount);
 	auto start = std::chrono::high_resolution_clock::now();
 	rend.render();
 	auto end = std::chrono::high_resolution_clock::now();

@@ -3,169 +3,20 @@
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
+#include <memory>
 #include <vector>
+
+#include <log.hpp>
+#include "intersectable.hpp"
 
 using namespace ygl::bvh;
 
-BBox::BBox(const vec3 &min, const vec3 &max) : min(min), max(max) {}
-
-bool BBox::isEmpty() const {
-	const vec3 size = max - min;
-	return size.x <= 1e-6f || size.y <= 1e-6f || size.z <= 1e-6f;
-}
-
-void BBox::add(const BBox &other) {
-	min = ::min(min, other.min);
-	max = ::max(max, other.max);
-}
-
-void BBox::add(const vec3 &point) {
-	min = ::min(min, point);
-	max = ::max(max, point);
-}
-
-bool BBox::inside(const vec3 &point) const {
-	return (min.x - 1e-6 <= point.x && point.x <= max.x + 1e-6 && min.y - 1e-6 <= point.y && point.y <= max.y + 1e-6 &&
-			min.z - 1e-6 <= point.z && point.z <= max.z + 1e-6);
-}
-
-void BBox::octSplit(BBox parts[8]) const {
-	assert(!isEmpty());
-	const vec3 size   = max - min;
-	const vec3 center = min + size / 2.f;
-
-	parts[0] = BBox(min, center);
-	parts[1] = BBox(center, max);
-
-	parts[2] = BBox(vec3{min.x, center.y, min.z}, vec3{center.x, max.y, center.z});
-	parts[3] = BBox(vec3{min.x, center.y, center.z}, vec3{center.x, max.y, max.z});
-	parts[4] = BBox(vec3{min.x, min.y, center.z}, vec3{center.x, center.y, max.z});
-
-	parts[6] = BBox(vec3{center.x, min.y, center.z}, vec3{max.x, center.y, max.z});
-	parts[5] = BBox(vec3{center.x, min.y, min.z}, vec3{max.x, center.y, center.z});
-	parts[7] = BBox(vec3{center.x, center.y, min.z}, vec3{max.x, max.y, center.z});
-}
-
-BBox BBox::boxIntersection(const BBox &other) const {
-	assert(!isEmpty());
-	assert(!other.isEmpty());
-	return {::max(min, other.min), ::min(max, other.max)};
-}
-
-bool BBox::testIntersect(const Ray &ray, float &t) const {
-	// Source:
-	// https://medium.com/@bromanz/another-view-on-the-classic-ray-aabb-intersection-algorithm-for-bvh-traversal-41125138b525
-	float t1 = -FLT_MAX;
-	float t2 = FLT_MAX;
-
-	vec3 t0s = (min - ray.origin) * (vec3(1.0f) / ray.direction);
-	vec3 t1s = (max - ray.origin) * (vec3(1.0f) / ray.direction);
-
-	vec3 tsmaller = ::min(t0s, t1s);
-	vec3 tbigger  = ::max(t0s, t1s);
-
-	t1 = std::max(t1, std::max(tsmaller.x, std::max(tsmaller.y, tsmaller.z)));
-	t2 = std::min(t2, std::min(tbigger.x, std::min(tbigger.y, tbigger.z)));
-	t  = t1;
-	return t1 <= t2;
-}
-
-bool BBox::testIntersect(const Ray &ray) const {
-	float a;
-	return testIntersect(ray, a);
-}
-
-vec3 BBox::center() const { return (min + max) / 2.f; }
-
-float BBox::surfaceArea() const {
-	vec3 size = max - min;
-	return (size.x * size.y + size.x * size.z + size.y * size.z);
-}
-
-/// source https://github.com/anrieff/quaddamage/blob/master/src/mesh.cpp
-bool intersectTriangleFast(const Ray &ray, const vec3 &A, const vec3 &B, const vec3 &C, float &dist) {
-	const vec3 AB = B - A;
-	const vec3 AC = C - A;
-	const vec3 D  = -ray.direction;
-	//              0               A
-	const vec3 H = ray.origin - A;
-
-	/* 2. Solve the equation:
-	 *
-	 * A + lambda2 * AB + lambda3 * AC = ray.start + gamma * ray.dir
-	 *
-	 * which can be rearranged as:
-	 * lambda2 * AB + lambda3 * AC + gamma * D = ray.start - A
-	 *
-	 * Which is a linear system of three rows and three unknowns, which we solve using Carmer's rule
-	 */
-
-	// Find the determinant of the left part of the equation:
-	const vec3 ABcrossAC = cross(AB, AC);
-	const float		Dcr		  = dot(ABcrossAC, D);
-
-	// are the ray and triangle parallel?
-	if (fabs(Dcr) < 1e-12) { return false; }
-
-	const float lambda2 = dot(cross(H, AC), D) / Dcr;
-	const float lambda3 = dot(cross(AB, H), D) / Dcr;
-	const float gamma	= dot(ABcrossAC, H) / Dcr;
-
-	// is intersection behind us, or too far?
-	if (gamma < 0 || gamma > dist) { return false; }
-
-	// is the intersection outside the triangle?
-	if (lambda2 < 0 || lambda2 > 1 || lambda3 < 0 || lambda3 > 1 || lambda2 + lambda3 > 1) { return false; }
-
-	dist = gamma;
-
-	return true;
-}
-
 AcceleratorPtr makeDefaultAccelerator() { return AcceleratorPtr(new BVHTree()); }
 
-void BVHTree::addPrimitive(Intersectable *prim) { allPrimitives.push_back(prim); }
-
-//#if !defined(YGL_NO_COMPUTE_SHADERS)
-//void BVHTree::addPrimitive(ygl::Mesh *mesh, ygl::Transformation &transform) {
-//	mat4x4 &mat		   = transform.getWorldMatrix();
-//	std::size_t	 verticesCount = mesh->getVerticesCount();
-//	std::size_t	 indicesCount  = mesh->getIndicesCount();
-//
-//	float	 *vertices = new float[verticesCount * 3];
-//	uint32_t *indices  = new uint32_t[indicesCount * 3];
-//	glBindBuffer(GL_ARRAY_BUFFER, mesh->getVertices().bufferId);
-//	glGetBufferSubData(GL_ARRAY_BUFFER, 0, verticesCount * sizeof(float) * 3, vertices);
-//	glBindBuffer(GL_ARRAY_BUFFER, 0);
-//
-//	glBindBuffer(GL_ARRAY_BUFFER, mesh->getIBO());
-//	glGetBufferSubData(GL_ARRAY_BUFFER, 0, indicesCount * sizeof(uint32_t), indices);
-//	glBindBuffer(GL_ARRAY_BUFFER, 0);
-//
-//	for (std::size_t i = 0; i < indicesCount; i += 3) {
-//		uint32_t i0 = indices[i + 0];
-//		uint32_t i1 = indices[i + 1];
-//		uint32_t i2 = indices[i + 2];
-//
-//		vec3 v0 = vec3(vertices[i0 * 3 + 0], vertices[i0 * 3 + 1], vertices[i0 * 3 + 2]);
-//		vec3 v1 = vec3(vertices[i1 * 3 + 0], vertices[i1 * 3 + 1], vertices[i1 * 3 + 2]);
-//		vec3 v2 = vec3(vertices[i2 * 3 + 0], vertices[i2 * 3 + 1], vertices[i2 * 3 + 2]);
-//
-//		v0 = mat * vec4(v0, 1.0f);
-//		v1 = mat * vec4(v1, 1.0f);
-//		v2 = mat * vec4(v2, 1.0f);
-//		this->addPrimitive(new Triangle(i0, i1, i2, v0, v1, v2, 0));
-//	}
-//	delete[] vertices;
-//	delete[] indices;
-//}
-//#endif
+void BVHTree::addPrimitive(const Intersectable *prim) { allPrimitives.emplace_back(prim); }
 
 void BVHTree::clear(Node *node) {
 	if (node == nullptr) return;
-	for (Intersectable *i : node->primitives) {
-		delete i;
-	}
 	for (int i = 0; i < 2; i++) {
 		clear(node->children[i]);
 		delete node->children[i];
@@ -175,7 +26,7 @@ void BVHTree::clear(Node *node) {
 void BVHTree::clear() {
 	if (root != nullptr) clear(root);
 	clearConstructionTree();
-	allPrimitives.clear();
+	// allPrimitives.clear();
 	built = false;
 }
 
@@ -194,8 +45,8 @@ void BVHTree::build(Node *node, int depth) {
 	this->depth = std::max(depth, this->depth);
 
 	// get a bounding box of all centroids
-	BBox centerBox;
-	for (Intersectable *obj : node->primitives) {
+	AABB centerBox;
+	for (const auto &obj : node->primitives) {
 		centerBox.add(obj->getCenter());
 	}
 	vec3 size = centerBox.max - centerBox.min;
@@ -217,7 +68,7 @@ void BVHTree::build(Node *node, int depth) {
 		// sorts so that the middle element is in its place, all others are in sorted order relative to it
 		std::nth_element(
 			node->primitives.begin(), node->primitives.begin() + size * 0.5, node->primitives.end(),
-			[&](Intersectable *&a, Intersectable *&b) { return a->getCenter()[maxAxis] < b->getCenter()[maxAxis]; });
+			[&](const auto &a, const auto &b) { return a->getCenter()[maxAxis] < b->getCenter()[maxAxis]; });
 		node->left	= new Node();
 		node->right = new Node();
 		nodeCount += 2;
@@ -226,7 +77,7 @@ void BVHTree::build(Node *node, int depth) {
 		for (unsigned long int i = 0; i < size; ++i) {
 			bool ind = i > (size / 2 - 1);
 			node->primitives[i]->expandBox(node->children[ind]->box);
-			node->children[ind]->primitives.push_back(node->primitives[i]);
+			node->children[ind]->primitives.emplace_back(std::move(node->primitives[i]));
 		}
 	} else {
 		long int noSplitSAH = node->primitives.size();
@@ -255,10 +106,10 @@ void BVHTree::build(Node *node, int depth) {
 		node->left	= new Node();
 		node->right = new Node();
 		nodeCount += 2;
-		for (Intersectable *obj : node->primitives) {
+		for (auto &obj : node->primitives) {
 			int ind = obj->getCenter()[maxAxis] > split;
 			obj->expandBox(node->children[ind]->box);
-			node->children[ind]->primitives.push_back(obj);
+			node->children[ind]->primitives.push_back(std::move(obj));
 		}
 	}
 
@@ -284,27 +135,25 @@ void BVHTree::build(Purpose purpose) {
 	// build both trees
 	Timer buildTimer;
 	build(root, 0);
-	printf("Main Tree built: %lldms\n", (long long int)buildTimer.toMs(buildTimer.elapsedNs()));
+	dbLog(dbg::LOG_INFO, "Main Tree built: ", buildTimer.elapsed<std::chrono::milliseconds>());
 
-	Timer gpuTimer;
-	buildGPUTree();
-	printf("GPU Tree built: %lldms\n", (long long int)gpuTimer.toMs(gpuTimer.elapsedNs()));
+	buildFastTree();
 
 	// construction tree is no longer needed
 	clearConstructionTree();
 
 	built = true;
-	printf(" done in %lldms, nodes: %ld, leaves: %ld, depth %d, %d leaf size\n",
-		   (long long int)timer.toMs(timer.elapsedNs()), nodeCount, leavesCount, depth, leafSize);
+	dbLog(dbg::LOG_INFO, " done in ", timer.elapsed<std::chrono::milliseconds>(), " ms, nodes: ", nodeCount,
+		  ", leaves: ", leavesCount, ", depth: ", depth, ", leaf size: ", leafSize);
 }
 
 float BVHTree::costSAH(const Node *node, int axis, float ratio) {
 	// effectively a lerp between the min and max of the box
 	const float split	 = node->box.min[axis] * ratio + node->box.max[axis] * (1 - ratio);
 	long int	count[2] = {0, 0};
-	BBox		boxes[2];
+	AABB		boxes[2];
 	// count indices and merge bounding boxes in both children
-	for (Intersectable *obj : node->primitives) {
+	for (const auto &obj : node->primitives) {
 		int ind = (obj->getCenter()[axis] > split);
 		++count[ind];
 		obj->expandBox(boxes[ind]);
@@ -315,72 +164,132 @@ float BVHTree::costSAH(const Node *node, int axis, float ratio) {
 	return SAH_TRAVERSAL_COST + (s[0] * count[0] + s[1] * count[1]) / s0;
 }
 
-void BVHTree::buildGPUTree_h(BVHTree::Node *node, unsigned long int parent, std::vector<BVHTree::GPUNode> &gpuNodes,
-							 std::vector<Intersectable *> &primitives) {
-	BVHTree::GPUNode current;
-	current.min	   = node->box.min;
-	current.max	   = node->box.max;
-	current.parent = parent;
-	if (node->isLeaf()) {
-		current.right	   = 0;
-		current.primOffset = primitives.size();
-		current.primCount  = node->primitives.size();
-		for (Intersectable *p : node->primitives) {
-			primitives.push_back(p);
-		}
-	} else {
-		current.primOffset = 0;
-		current.primCount  = 0;
-	}
-	gpuNodes.push_back(current);
-	unsigned long int currIndex = gpuNodes.size() - 1;
-
-	if (node->isLeaf()) return;
-
-	buildGPUTree_h(node->left, currIndex, gpuNodes, primitives);
-	gpuNodes[currIndex].right = gpuNodes.size();
-	buildGPUTree_h(node->right, currIndex, gpuNodes, primitives);
-}
-
-//#if !defined( YGL_NO_COMPUTE_SHADERS)
-//void BVHTree::buildGPUTree() {
-//	gpuNodes.reserve(nodeCount);
-//	std::vector<Intersectable *> orderedPrimitives;
-//
-//	if (!(root->isLeaf())) buildGPUTree_h(root, 0, gpuNodes, orderedPrimitives);
-//
-//	// TODO: convert all primitives to GPU format and figure out how to access them by indices
-//	// primitive data:
-//	//		uint type = {box, sphere, triangle}
-//	//		<28 bytes other data>
-//	// total 32 bytes
-//	std::size_t buffSize = 8 * sizeof(uint) * orderedPrimitives.size();
-//	char	   *buff	 = new char[buffSize];
-//	for (uint i = 0; i < orderedPrimitives.size(); ++i) {
-//		orderedPrimitives[i]->writeTo(buff, i * 8 * sizeof(uint));
-//	}
-//
-//	// send buff to gpu
-//	GLuint primitivesBuff;
-//	glGenBuffers(1, &primitivesBuff);
-//	glBindBuffer(GL_SHADER_STORAGE_BUFFER, primitivesBuff);
-//	glBufferData(GL_SHADER_STORAGE_BUFFER, buffSize, buff, GL_STATIC_DRAW);
-//	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-//
-//	ygl::Shader::setSSBO(primitivesBuff, 7);
-//
-//	GLuint nodesBuff;
-//	glGenBuffers(1, &nodesBuff);
-//	glBindBuffer(GL_SHADER_STORAGE_BUFFER, nodesBuff);
-//	glBufferData(GL_SHADER_STORAGE_BUFFER, gpuNodes.size() * sizeof(GPUNode), gpuNodes.data(), GL_STATIC_DRAW);
-//	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-//
-//	ygl::Shader::setSSBO(nodesBuff, 5);
-//	delete[] buff;
-//}
-//#endif
 BVHTree::~BVHTree() {
 	clear();
 	clearConstructionTree();
 }
 
+bool BVHTree::intersect(long unsigned int nodeIndex, const Ray &ray, float tMin, float &tMax,
+						RayHit &intersection) const {
+	bool			hasHit = false;
+	const FastNode *node   = &(fastNodes[nodeIndex]);
+
+	if (node->isLeaf()) {
+		// dbLog(dbg::LOG_DEBUG, "Intersecting leaf ", nodeIndex, " with ", node->primitives, " primitives");
+		//   iterate either to a invalid pointer or to the max leaf size
+		assert(node->primitives != nullptr && "Primitive pointer is null in BVH tree");
+		for (int i = 0; i < leafSize && node->primitives[i] != nullptr; i++) {
+			assert(node->primitives[i] != nullptr && "Primitive pointer is null in BVH tree");
+			if (node->primitives[i]->intersect(ray, tMin, tMax, intersection)) {
+				tMax   = intersection.t;
+				hasHit = true;
+			}
+		}
+	} else {
+		// If the ray moves towards the positive direction, then will traverse in order left->right
+		// and right->left if else.
+		// First intersect with both child bounding boxes. Intersection with things inside the second box can
+		// be skipped if distance to intersection found in the first one is closer than that with the second box
+		//				 left 		 right
+		//             +---------+----+--------+
+		//       ray   |         |    |        |
+		//     --------+-->/\    |    |   /\   |
+		//             |  /--\   |    |  /--\  |
+		//             |         |    |        |
+		//             +---------+----+        |
+		//                       |             |
+		//                       +-------------+
+
+		// I know that the next section is almost unreadable,
+		// won't be much better if I replace it with a lot of copy-pasted if-statements
+
+		// the distances to both children boxes
+		float			  dist[2];
+		long unsigned int childIndices[2]  = {nodeIndex + 1, node->right};
+		bool			  testIntersect[2] = {fastNodes[childIndices[0]].box.testIntersect(ray, dist[0]),
+											  fastNodes[childIndices[1]].box.testIntersect(ray, dist[1])};
+
+		int direction = ray.direction[node->splitAxis] > 0.f;
+
+		if (testIntersect[!direction]) {
+			if (intersect(childIndices[!direction], ray, tMin, tMax, intersection)) {
+				tMax   = intersection.t;
+				hasHit = true;
+			}
+		}
+		// if the closest found intersection is farther than the intersection
+		// with the second box, traverse it, otherwise skip it
+		if (tMax > dist[direction] && testIntersect[direction]) {
+			if (intersect(childIndices[direction], ray, tMin, tMax, intersection)) {
+				tMax   = intersection.t;
+				hasHit = true;
+			}
+		}
+	}
+
+	return hasHit;
+}
+
+bool BVHTree::intersect(const Ray &ray, float tMin, float tMax, RayHit &intersection) const {
+	if (fastNodes[0].box.testIntersect(ray)) {
+		return intersect(0, ray, tMin, tMax, intersection);
+	} else return false;
+}
+
+// builds a tree for fast traversal
+void BVHTree::buildFastTree() {
+	// no reallocations whould happen
+	fastNodes.reserve(nodeCount);
+
+	// every leaf will have a list of primitives that ends with a null pointer.
+	assert(allPrimitives.empty() && "All primitives should be empty before building the fast tree");
+	allPrimitives.reserve(primitivesCount + leavesCount);
+
+	// the other function expects the parent node to already have been pushed to the vector
+	fastNodes.push_back(makeFastLeaf(root));
+	// leaves must not be traced down
+	if (!(root->isLeaf())) { buildFastTree(root, fastNodes); }
+}
+
+void BVHTree::buildFastTree(Node *node, std::vector<FastNode> &allNodes) {
+	int parentIndex = allNodes.size() - 1;
+
+	// insert the left child
+	allNodes.push_back(makeFastLeaf(node->left));
+
+	// trace down left
+	if (!(node->left->isLeaf())) { buildFastTree(node->left, allNodes); }
+
+	// add right child
+	allNodes.push_back(makeFastLeaf(node->right));
+
+	// write to the parent right pointer
+	allNodes[parentIndex].right = allNodes.size() - 1;
+
+	// trace down right
+	if (!(node->right->isLeaf())) { buildFastTree(node->right, allNodes); }
+}
+
+// copies the data from a Node to a FastNode when constructing the traversal tree
+BVHTree::FastNode BVHTree::makeFastLeaf(Node *node) {
+	if (node->isLeaf()) {
+		// This should have sped up things because continuous allocation should be better for cache.
+		// But it has no effect. It looks like the access of primitives is random enough that
+		// it always generates a cache miss.
+		const auto begin_index = allPrimitives.size();
+		for (auto &prim : node->primitives) {
+			allPrimitives.emplace_back(std::move(prim));
+		}
+		allPrimitives.emplace_back(nullptr);
+		node->primitives.clear();
+
+		const auto &begin = allPrimitives.data() + begin_index;
+		static_assert(sizeof(std::unique_ptr<const Intersectable>) == sizeof(const Intersectable *),
+					  "The size of unique_ptr must be the same as a pointer to Intersectable");
+		const Intersectable **primitives = reinterpret_cast<const Intersectable **>(begin);
+
+		return FastNode{node->box, 0, primitives, node->splitAxis};
+	} else {
+		return FastNode{node->box, 0, nullptr, node->splitAxis};
+	}
+}

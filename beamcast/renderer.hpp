@@ -14,8 +14,8 @@ class Renderer {
 	Scene &scene;
 
    public:
-	Renderer(Scene &scene, float resolution_scale = 1.0f)
-		: pool(std::thread::hardware_concurrency()), resolution_scale(resolution_scale), scene(scene) {
+	Renderer(Scene &scene, float resolution_scale = 1.0f, int threadCount = std::thread::hardware_concurrency())
+		: pool(threadCount), resolution_scale(resolution_scale), scene(scene) {
 		setResolutionScale(resolution_scale);
 	}
 

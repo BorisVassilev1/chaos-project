@@ -1,9 +1,7 @@
 #pragma once
 
 #include <myglm/myglm.h>
-#include <atomic>
 #include <json/json.hpp>
-#include <mutex>
 #include <util/utils.hpp>
 #include <float.h>
 
@@ -40,94 +38,79 @@ struct AABB {
 
 	AABB() = default;
 
-	AABB(const vec3 &min, const vec3 &max);
+	AABB(const vec3& min, const vec3& max) : min(min), max(max) {
+		assert(min.x <= max.x && min.y <= max.y && min.z <= max.z);
+	}
 
 	/// @brief Checks if the box is small enough to be ignored
 	/// @return true if it is small enough, false otherwise
-	bool isEmpty() const;
+	bool isEmpty() const {
+		const vec3 size = max - min;
+		return size.x <= 1e-6f || size.y <= 1e-6f || size.z <= 1e-6f;
+	}
 
 	/// @brief Extends this AABB to include both itself and \a other
-	void add(const AABB &other);
+	void add(const AABB& other) {
+		min = ::min(min, other.min);
+		max = ::max(max, other.max);
+	}
 
 	/// @brief Expand the box with a single point
-	void add(const vec3 &point);
+	void add(const vec3& point) {
+		min = ::min(min, point);
+		max = ::max(max, point);
+	}
 
 	/// @brief Checks if a point is in this Bounding Box
-	bool inside(const vec3 &point) const;
+	bool inside(const vec3& point) const {
+		return (min.x - 1e-6 <= point.x && point.x <= max.x + 1e-6 && min.y - 1e-6 <= point.y &&
+				point.y <= max.y + 1e-6 && min.z - 1e-6 <= point.z && point.z <= max.z + 1e-6);
+	}
 
 	/// @brief Split the box in 8 equal parts, children are not sorted in any way
 	/// @param parts [out] - where to write the children
-	void octSplit(AABB parts[8]) const;
+	// void octSplit(AABB parts[8]) const;
 
 	/// @brief Compute the intersection with another box
 	///	@return empty box if there is no intersection
-	AABB boxIntersection(const AABB &other) const;
+	AABB boxIntersection(const AABB& other) const {
+		assert(!isEmpty());
+		assert(!other.isEmpty());
+		return {::max(min, other.min), ::min(max, other.max)};
+	}
 
 	/// @brief Check if a ray intersects the box and find the distance
-	bool testIntersect(const Ray &ray, float &t) const;
+	bool testIntersect(const Ray& ray, float& t) const {
+		// Source:
+		// https://medium.com/@bromanz/another-view-on-the-classic-ray-aabb-intersection-algorithm-for-bvh-traversal-41125138b525
+		float t1 = -FLT_MAX;
+		float t2 = FLT_MAX;
+
+		vec3 t0s = (min - ray.origin) * (vec3(1.0f) / ray.direction);
+		vec3 t1s = (max - ray.origin) * (vec3(1.0f) / ray.direction);
+
+		vec3 tsmaller = ::min(t0s, t1s);
+		vec3 tbigger  = ::max(t0s, t1s);
+
+		t1 = std::max(t1, std::max(tsmaller.x, std::max(tsmaller.y, tsmaller.z)));
+		t2 = std::min(t2, std::min(tbigger.x, std::min(tbigger.y, tbigger.z)));
+		t  = t1;
+		return t1 <= t2;
+	}
 
 	/// @brief Check if a ray intersects the box
-	bool testIntersect(const Ray &ray) const;
+	bool testIntersect(const Ray& ray) const {
+		float a;
+		return testIntersect(ray, a);
+	}
 
 	/// @brief get the center of the box
-	vec3 center() const;
+	vec3 center() const { return (min + max) * 0.5f; }
 
 	/// @brief calculate the surface area of the AABB. Used for SAH
-	float surfaceArea() const;
-};
-
-struct Triangle {
-	vec3 v0;
-	vec3 v1;
-	vec3 v2;
-
-	Triangle(const vec3& a, const vec3& b, const vec3& c) : v0(a), v1(b), v2(c) {}
-
-	inline constexpr auto normal() const { return cross(v1 - v0, v2 - v0); }
-
-	inline constexpr auto area() const { return length(normal()) * 0.5f; }
-
-	inline constexpr RayHit intersect(const Ray& r) const {
-		// graphicon.org/html/2012/conference/EN2%20-%20Graphics/gc2012Shumskiy.pdf
-		vec3  e1	 = v1 - v0;
-		vec3  e2	 = v2 - v0;
-		vec3  normal = normalize(cross(e1, e2));
-		float b		 = dot(normal, r.direction);
-		vec3  w0	 = r.origin - v0;
-		float a		 = -dot(normal, w0);
-		float t		 = a / b;
-		vec3  p		 = r.origin + r.direction * t;
-		float uu, uv, vv, wu, wv, inverseD;
-		uu		 = dot(e1, e1);
-		uv		 = dot(e1, e2);
-		vv		 = dot(e2, e2);
-		vec3 w	 = p - v0;
-		wu		 = dot(w, e1);
-		wv		 = dot(w, e2);
-		inverseD = uv * uv - uu * vv;
-		inverseD = 1.0f / inverseD;
-		float u	 = (uv * wv - vv * wu) * inverseD;
-		if (u < 0.0 || u > 1.0) [[likely]]
-			return RayHit();
-		float v = (uv * wu - uu * wv) * inverseD;
-		if (v < 0.0 || (u + v) > 1.0) [[likely]]
-			return RayHit();
-
-		RayHit hit;
-		hit.t  = t;
-		hit.uv = vec2(u, v);
-		return hit;
-	}
-
-	void expandBox(AABB& box) const {
-		box.add(v0);
-		box.add(v1);
-		box.add(v2);
-	}
-
-	vec3 getCenter() const {
-		vec3 sum = v0 + v1 + v2;
-		return sum / 3.f;
+	float surfaceArea() const {
+		const vec3 size = max - min;
+		return (size.x * size.y + size.x * size.z + size.y * size.z);
 	}
 };
 
@@ -148,140 +131,3 @@ struct PointLight {
 		color = vec3{1.0f, 1.0f, 1.0f};
 	}
 };
-
-class Mesh {
-	std::vector<vec3>  vertices;
-	std::vector<vec3>  normals;
-	std::vector<vec3>  texCoords;
-	std::vector<vec3>  triangleNormals;
-	std::vector<ivec3> indices;
-
-	std::size_t materialIndex = 0;
-
-   public:
-	Mesh() = default;
-
-	Mesh(const JSONObject& obj) {
-		auto& verticesJSON = obj["vertices"].as<JSONArray>();
-		this->vertices.reserve(verticesJSON.size() / 3);
-		for (unsigned int i = 0; i < verticesJSON.size(); i += 3) {
-			if (i + 2 >= verticesJSON.size()) {
-				throw std::runtime_error("Invalid number of vertices in triangle object");
-			}
-			vec3 v0 = {verticesJSON[i].as<JSONNumber>(), verticesJSON[i + 1].as<JSONNumber>(),
-					   verticesJSON[i + 2].as<JSONNumber>()};
-			this->vertices.push_back(v0);
-		}
-
-		this->texCoords.reserve(vertices.size());
-		if (obj.find("uvs") == obj.end()) {
-			texCoords.resize(vertices.size(), vec3(0.0f));
-			dbLog(dbg::LOG_WARNING, "No texture coordinates found in triangle object, using default ones.");
-		} else {
-			auto& texCoordsJSON = obj["uvs"].as<JSONArray>();
-			assert(texCoordsJSON.size() == verticesJSON.size());
-			for (unsigned int i = 0; i < texCoordsJSON.size(); i += 3) {
-				if (i + 2 >= texCoordsJSON.size()) {
-					throw std::runtime_error("Invalid number of texture coordinates in triangle object");
-				}
-				vec3 uv = {texCoordsJSON[i].as<JSONNumber>(), texCoordsJSON[i + 1].as<JSONNumber>(),
-						   texCoordsJSON[i + 2].as<JSONNumber>()};
-				this->texCoords.push_back(uv);
-			}
-		}
-
-		auto& indicesJSON = obj["triangles"].as<JSONArray>();
-		if (indicesJSON.size() % 3 != 0) {
-			throw std::runtime_error("Indices must be a multiple of 3 for triangle objects");
-		}
-
-		this->indices.reserve(indicesJSON.size() / 3);
-		for (unsigned int i = 0; i < indicesJSON.size(); i += 3) {
-			if (i + 2 >= indicesJSON.size()) {
-				throw std::runtime_error("Invalid number of indices in triangle object");
-			}
-			unsigned int idx0 = indicesJSON[i].as<JSONNumber>();
-			unsigned int idx1 = indicesJSON[i + 1].as<JSONNumber>();
-			unsigned int idx2 = indicesJSON[i + 2].as<JSONNumber>();
-
-			if (idx0 >= this->vertices.size() || idx1 >= vertices.size() || idx2 >= vertices.size()) {
-				throw std::runtime_error("Index out of bounds in triangle object");
-			}
-
-			indices.emplace_back(idx0, idx1, idx2);
-			const auto triangle = Triangle(this->vertices[idx0], this->vertices[idx1], this->vertices[idx2]);
-			triangleNormals.push_back(normalize(triangle.normal()));
-		}
-		normals.resize(vertices.size(), vec3(0.0f));
-		recalculateNormals();
-
-		if (obj.find("material_index") != obj.end()) {
-			materialIndex = obj["material_index"].as<JSONNumber>();
-		} else {
-			materialIndex = 0;	   // Default to first material if not specified
-		}
-
-		dbLog(dbg::LOG_DEBUG, "Mesh created with ", vertices.size(), " vertices and ", indices.size(), " triangles.");
-	}
-
-	void recalculateNormals() {
-		std::vector<std::pair<vec3, unsigned int>> normalsSum(vertices.size(), {vec3(0.0f), 0});
-		for (const auto& index : indices) {
-			const auto triangle = Triangle(vertices[index.x], vertices[index.y], vertices[index.z]);
-			vec3	   normal	= normalize(triangle.normal());
-			normalsSum[index.x].first += normal;
-			normalsSum[index.y].first += normal;
-			normalsSum[index.z].first += normal;
-			normalsSum[index.x].second++;
-			normalsSum[index.y].second++;
-			normalsSum[index.z].second++;
-		}
-		for (const auto& [i, data] : std::views::enumerate(normalsSum)) {
-			auto& [normal, count] = data;
-			if (count > 0) {
-				normal /= float(count);
-				normal	   = normalize(normal);
-				normals[i] = normal;
-			} else {
-				dbLog(dbg::LOG_WARNING, "Normal for vertex ", i, " has no triangles, setting to default normal.");
-			}
-		}
-	}
-
-	inline RayHit intersect(const Ray& ray) const {
-		RayHit hit;
-		for (auto [i, index] : std::views::enumerate(indices)) {
-			const auto triangle = Triangle(vertices[index.x], vertices[index.y], vertices[index.z]);
-			const auto hitnew	= triangle.intersect(ray);
-			if (hitnew.t > 0.001f && hitnew.t < hit.t) {
-				hit				  = hitnew;
-				hit.triangleIndex = i;
-			}
-		}
-		return hit;
-	}
-
-	inline void fillHitInfo(RayHit& hit, const Ray& ray, bool smooth = true) const {
-		if (hit.triangleIndex == -1u) return;
-
-		hit.pos = ray.at(hit.t);
-		if (smooth) {
-			hit.normal = normalize(normals[indices[hit.triangleIndex].x] * (1.0f - hit.uv.x - hit.uv.y) +
-								   normals[indices[hit.triangleIndex].y] * hit.uv.x +
-								   normals[indices[hit.triangleIndex].z] * hit.uv.y);
-		} else hit.normal = triangleNormals[hit.triangleIndex];
-
-		hit.texCoords = texCoords[indices[hit.triangleIndex].x] * (1.0f - hit.uv.x - hit.uv.y) +
-						texCoords[indices[hit.triangleIndex].y] * hit.uv.x +
-						texCoords[indices[hit.triangleIndex].z] * hit.uv.y;
-	}
-
-	inline constexpr auto getMaterialIndex() const { return materialIndex; }
-
-	inline constexpr auto& getVertices() const { return vertices; }
-	inline constexpr auto& getNormals() const { return normals; }
-	inline constexpr auto& getIndices() const { return indices; }
-	inline constexpr auto& getTriangleNormals() const { return triangleNormals; }
-};
-
-
