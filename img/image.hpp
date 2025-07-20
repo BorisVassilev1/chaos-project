@@ -128,3 +128,22 @@ inline constexpr RGBA convert<RGBA32F, RGBA>(const RGBA32F& color) {
 				static_cast<uint8_t>(std::clamp(color.z, 0.f, 1.f) * 255.0f),
 				static_cast<uint8_t>(std::clamp(color.w, 0.f, 1.f) * 255.0f)};
 }
+
+inline auto segmentImage(const ivec2 resolution, const ivec2 segmentSize) {
+	const ivec2 segments = (resolution + segmentSize - 1) / segmentSize;
+	return std::views::cartesian_product(std::views::iota(0, segments.x), std::views::iota(0, segments.y)) |
+		   std::views::transform([=](const auto& pair) {
+			   const auto [x, y] = pair;
+			   const auto min	 = ivec2(x, y) * segmentSize;
+			   const auto max	 = ivec2(x + 1, y + 1) * segmentSize;
+			   return std::make_pair(min, ::min(max, resolution));
+		   });
+}
+
+inline auto iter2D(ivec2 min, ivec2 max) {
+	return std::views::cartesian_product(std::views::iota(min.x, max.x), std::views::iota(min.y, max.y)) |
+		   std::views::transform([](const auto& pair) {
+			   auto [x, y] = pair;
+			   return ivec2(x, y);
+		   });
+}

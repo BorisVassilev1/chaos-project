@@ -4,6 +4,16 @@
 
 #include <camera.hpp>
 #include <scene.hpp>
+#include "renderer.hpp"
+
+/*
+
+timings:
+single thread:		315556 ms
+par_unseq:			56904 ms
+par:				57249 ms
+sectors:			56298 ms
+*/
 
 int main(int argc, char** argv) {
 	if (argc <= 1) {
@@ -20,6 +30,7 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
+	float resolution_scale = 1.0f;
 	if (argc > 2) {
 		if (argv[2] == std::string("-")) {
 			std::ofstream ofs("output.obj");
@@ -28,16 +39,21 @@ int main(int argc, char** argv) {
 			return 0;
 		}
 		try {
-			float scale = std::stof(argv[2]);
-			sc.setResolutionScale(scale);
+			resolution_scale = std::stof(argv[2]);
 		} catch (const std::exception& e) {
 			dbLog(dbg::LOG_ERROR, "Invalid resolution scale: ", e.what());
 			return 1;
 		}
 	}
 
-	sc.render();
-	sc.saveImage("output.ppm");
+	Renderer rend(sc, resolution_scale);
+	auto start = std::chrono::high_resolution_clock::now();
+	rend.render();
+	auto end = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+	dbLog(dbg::LOG_INFO, "Rendering completed in ", duration.count(), " ms");
 
-	system("fish -c 'open output.ppm'");
+	rend.saveImage("output.png");
+
+	system("fish -c 'feh output.png'");
 }

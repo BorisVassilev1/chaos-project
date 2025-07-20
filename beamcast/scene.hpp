@@ -1,11 +1,9 @@
 #pragma once
 
-#include <algorithm>
 #include <filesystem>
 #include <unordered_map>
 
 #include <beamcast/data.hpp>
-#include <execution>
 #include <camera.hpp>
 #include <img/image.hpp>
 #include <json/json.hpp>
@@ -16,17 +14,24 @@
 
 class Scene {
    public:
-	Camera		  camera;
-	Image<RGB32F> image;
-	vec4		  backgroundColor = {0.f, 0.f, 0.f, 1.f};
+	Camera camera;
+	vec4   backgroundColor = {0.f, 0.f, 0.f, 1.f};
 
-	ivec2 resolution;
-	float resolution_scale = 1.0f;
+	struct ImageSettings {
+		ivec2 resolution;
 
-	std::vector<PointLight>				   lights;
-	std::vector<Mesh>					   objects;
-	std::vector<std::unique_ptr<Material>> materials;
-	std::vector<Texture *>			   textures;
+		ImageSettings() : resolution(0, 0) {}
+		ImageSettings(const JSONObject &obj) {
+			auto width	= obj["width"].as<JSONNumber>();
+			auto height = obj["height"].as<JSONNumber>();
+			resolution	= ivec2(width, height);
+		}
+	} imageSettings;
+
+	std::vector<PointLight>					   lights;
+	std::vector<Mesh>						   objects;
+	std::vector<std::unique_ptr<Material>>	   materials;
+	std::vector<std::unique_ptr<Texture>>	   textures;
 	std::unordered_map<std::string, Texture *> textureMap;
 
 	std::filesystem::path scenePath;
@@ -54,46 +59,16 @@ class Scene {
 	Scene(Scene &&)					= default;
 	Scene &operator=(const Scene &) = default;
 	Scene &operator=(Scene &&)		= default;
-	~Scene()						= default;
 
 	Scene(const std::string_view &filename);
 
 	void clear() {
 		objects.clear();
 		lights.clear();
-		image.clear();
 		camera = Camera{};
 	}
 
-	RGB32F shadePixel(const ivec2 &pixel) const;
-
-	void render() {
-		PercentLogger logger("Rendering", image.getWidth() * image.getHeight());
-		camera.setResolution(image.resolution());
-		auto I = image.Iterate();
-		std::for_each(std::execution::par_unseq, I.begin(), I.end(), [&](const auto &pair) {
-			// std::for_each(I.begin(), I.end(), [&](const auto &pair) {
-			auto [x, y] = pair;
-
-			auto color = shadePixel(ivec2(x, y));
-
-			apply_inplace(color, [](float &c) { return std::clamp(c, 0.f, 1.f); });
-			image(x, y) = color.xyz();
-			logger.step();
-		});
-		logger.finish();
-	};
-
-	void saveImage(const std::string_view &filename) const {
-		exportToFile(image, filename, export_PPM_BIN<RGB32F>);
-		dbLog(dbg::LOG_INFO, "Image saved to ", filename, "\n");
-	}
-
-	void setResolutionScale(float scale) {
-		if (scale <= 0.f) { throw std::invalid_argument("Resolution scale must be greater than 0"); }
-		resolution_scale = scale;
-		image.resize(resolution.x * scale, resolution.y * scale);
-	}
+	auto getImageSettings() const { return imageSettings; }
 
 	void serializeOBJ(std::ostream &os) const {
 		std::size_t offset = 0;
@@ -114,10 +89,8 @@ class Scene {
 	}
 
 	Texture *getTexture(const std::string_view &name) const {
-		auto it = textureMap.find(std::string(name)); // TODO: use std::string_view for better performance
-		if (it != textureMap.end()) {
-			return it->second;
-		}
+		auto it = textureMap.find(std::string(name));	  // TODO: use std::string_view for better performance
+		if (it != textureMap.end()) { return it->second; }
 		throw std::runtime_error(std::string("Texture not found: ") + std::string(name));
 	}
 };

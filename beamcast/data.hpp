@@ -5,6 +5,7 @@
 #include <json/json.hpp>
 #include <mutex>
 #include <util/utils.hpp>
+#include <float.h>
 
 struct Ray {
 	vec3 origin;
@@ -28,6 +29,51 @@ struct RayHit {
 	unsigned int objectIndex = -1;
 	unsigned int depth		 = 0;
 	vec3		 texCoords	 = 0;
+};
+
+/**
+ * struct BBox - Axis Aligned Bouding Box
+ */
+struct AABB {
+	vec3 min = vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+	vec3 max = vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+
+	AABB() = default;
+
+	AABB(const vec3 &min, const vec3 &max);
+
+	/// @brief Checks if the box is small enough to be ignored
+	/// @return true if it is small enough, false otherwise
+	bool isEmpty() const;
+
+	/// @brief Extends this AABB to include both itself and \a other
+	void add(const AABB &other);
+
+	/// @brief Expand the box with a single point
+	void add(const vec3 &point);
+
+	/// @brief Checks if a point is in this Bounding Box
+	bool inside(const vec3 &point) const;
+
+	/// @brief Split the box in 8 equal parts, children are not sorted in any way
+	/// @param parts [out] - where to write the children
+	void octSplit(AABB parts[8]) const;
+
+	/// @brief Compute the intersection with another box
+	///	@return empty box if there is no intersection
+	AABB boxIntersection(const AABB &other) const;
+
+	/// @brief Check if a ray intersects the box and find the distance
+	bool testIntersect(const Ray &ray, float &t) const;
+
+	/// @brief Check if a ray intersects the box
+	bool testIntersect(const Ray &ray) const;
+
+	/// @brief get the center of the box
+	vec3 center() const;
+
+	/// @brief calculate the surface area of the AABB. Used for SAH
+	float surfaceArea() const;
 };
 
 struct Triangle {
@@ -71,6 +117,17 @@ struct Triangle {
 		hit.t  = t;
 		hit.uv = vec2(u, v);
 		return hit;
+	}
+
+	void expandBox(AABB& box) const {
+		box.add(v0);
+		box.add(v1);
+		box.add(v2);
+	}
+
+	vec3 getCenter() const {
+		vec3 sum = v0 + v1 + v2;
+		return sum / 3.f;
 	}
 };
 
@@ -227,29 +284,4 @@ class Mesh {
 	inline constexpr auto& getTriangleNormals() const { return triangleNormals; }
 };
 
-class PercentLogger {
-	std::string			name;
-	std::size_t			total;
-	std::atomic_int64_t current;
 
-	std::mutex mutex;
-
-   public:
-	PercentLogger(const std::string& name, std::size_t total) : name(name), total(total), current(0) {
-		std::lock_guard lock(mutex);
-		dbLogR(dbg::LOG_INFO, name, ": 0%");
-	}
-
-	inline constexpr void step() {
-		current.fetch_add(1, std::memory_order_relaxed);
-		if (current.load(std::memory_order_relaxed) % (total / 100) == 0) {
-			std::lock_guard lock(mutex);
-			dbLogR(dbg::LOG_INFO, name, ": ", (current * 100 / total), "%");
-		}
-	}
-
-	inline constexpr void finish() {
-		std::lock_guard lock(mutex);
-		dbLogR(dbg::LOG_INFO, name, " : 100%");
-	}
-};

@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD 26)
 
 file(GLOB_RECURSE sources ./*.cpp ./*.c ../json/json.cpp ../img/*.cpp)
 
-message("Sources found: ${sources}")
+#message("Sources found: ${sources}")
 
 add_executable(main ${sources})
 
@@ -22,7 +22,7 @@ target_compile_options(main PRIVATE
 	#-Rpass-analysis=loop-vectorize
 )
 target_link_options(main PRIVATE 
-	-ltbb -ltbbmalloc -ltbbmalloc_proxy -pthread 
+	#-ltbb -ltbbmalloc -ltbbmalloc_proxy -pthread 
 	-g -O3
 	-mavx -mavx2 -march=native
 )

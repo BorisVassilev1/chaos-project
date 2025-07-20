@@ -13,8 +13,7 @@ Scene::Scene(const std::string_view &filename) {
 		auto &settings = jo["settings"].as<JSONObject>();
 
 		auto &imageSettings = settings["image_settings"].as<JSONObject>();
-		this->image			= Image<RGB32F>(imageSettings);
-		this->resolution	= image.resolution();
+		this->imageSettings = ImageSettings(imageSettings);
 
 		auto &backgroundJSON  = settings["background_color"].as<JSONArray>();
 		this->backgroundColor = vec4{backgroundJSON[0].as<JSONNumber>(), backgroundJSON[1].as<JSONNumber>(),
@@ -23,7 +22,6 @@ Scene::Scene(const std::string_view &filename) {
 
 		auto &cameraJSON = jo["camera"].as<JSONObject>();
 		this->camera	 = Camera(cameraJSON);
-		this->camera.setResolution(image.resolution());
 
 		auto &objectsJSON = jo["objects"].as<JSONArray>();
 		for (const auto &j : objectsJSON) {
@@ -52,7 +50,7 @@ Scene::Scene(const std::string_view &filename) {
 				} else {
 					throw std::runtime_error("Unknown texture type: " + std::string(obj["type"].as<JSONString>()));
 				}
-				textureMap[obj["name"].as<JSONString>()] = textures.back();
+				textureMap[obj["name"].as<JSONString>()] = textures.back().get();
 			}
 		}
 
@@ -80,19 +78,3 @@ Scene::Scene(const std::string_view &filename) {
 	}
 }
 
-RGB32F Scene::shadePixel(const ivec2 &pixel) const {
-	const auto &x	= pixel.x;
-	const auto &y	= pixel.y;
-	auto		r	= camera.generate_ray(ivec2(x, y));
-	auto		hit = intersect(r);
-	if (hit.t == std::numeric_limits<float>::max()) { return backgroundColor.xyz(); }
-
-	const auto &object		  = objects[hit.objectIndex];
-	auto		materialIndex = object.getMaterialIndex();
-	const auto &material	  = materials[materialIndex];
-	fillHitInfo(hit, r, material->smooth);
-
-	vec4 color = material->shade(hit, r, *this);
-
-	return color.xyz();
-}
