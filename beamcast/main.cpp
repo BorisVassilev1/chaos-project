@@ -13,7 +13,7 @@ single thread:		315556 ms
 par_unseq:			56904 ms
 par:				57249 ms
 sectors:			56298 ms
-bvh:				177ms
+bvh:				183ms
 */
 
 int main(int argc, char** argv) {

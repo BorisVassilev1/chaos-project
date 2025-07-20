@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <data.hpp>
 
@@ -47,34 +49,45 @@ struct Primitive : Intersectable {
 	AABB box;
 
 	/// @brief Default implementation intersecting the bbox of the primitive, overriden if possible more efficiently
-	bool boxIntersect(const AABB &other) override { return !box.boxIntersection(other).isEmpty(); }
+	bool boxIntersect(const AABB &other) { return !box.boxIntersection(other).isEmpty(); }
 
 	/// @brief Default implementation adding the whole bbox, overriden for special cases
-	void expandBox(AABB &other) const override { other.add(box); }
+	void expandBox(AABB &other) const { other.add(box); }
 
 	/// @brief Get the center
-	vec3 getCenter() const override { return box.center(); }
+	vec3 getCenter() const { return box.center(); }
 
 	~Primitive() = default;
 };
 
 struct Triangle : public Primitive {
-	vec3 v0;
-	vec3 v1;
-	vec3 v2;
-	std::size_t index;
+	vec3		v0;
+	vec3		v1;
+	vec3		v2;
+	uint_fast32_t index;
 
-	Triangle(const vec3 &a, const vec3 &b, const vec3 &c, std::size_t index) : v0(a), v1(b), v2(c), index(index) {
-		box.add(v0);
-		box.add(v1);
-		box.add(v2);
+	operator bool() const { return index != -1u; }
+
+	Triangle(std::nullptr_t) : index(-1u) {
+		assert(!*this);
 	}
+	Triangle(const vec3 &a, const vec3 &b, const vec3 &c, uint_fast32_t index = -1u) : v0(a), v1(b), v2(c), index(index) {
+		// box.add(v0);
+		// box.add(v1);
+		// box.add(v2);
+	}
+	void expandBox(AABB &other) const {
+		other.add(v0);
+		other.add(v1);
+		other.add(v2);
+	}
+	vec3 getCenter() const { return (v0 + v1 + v2) / 3.0f; }
 
 	inline constexpr auto normal() const { return cross(v1 - v0, v2 - v0); }
 
 	inline constexpr auto area() const { return length(normal()) * 0.5f; }
 
-	virtual bool intersect(const Ray &r, float tMin, float tMax, RayHit &hit) const override {
+	virtual bool intersect(const Ray &r, float tMin, float tMax, RayHit &hit) const {
 		// graphicon.org/html/2012/conference/EN2%20-%20Graphics/gc2012Shumskiy.pdf
 		vec3  e1	 = v1 - v0;
 		vec3  e2	 = v2 - v0;
@@ -101,19 +114,20 @@ struct Triangle : public Primitive {
 		if (v < 0.0 || (u + v) > 1.0) [[likely]]
 			return false;
 
-		hit.t = t;
-		hit.uv = vec2(u, v);
+		hit.t			  = t;
+		hit.uv			  = vec2(u, v);
 		hit.triangleIndex = index;
 		return true;
 	}
 
-	inline void writeTo(char *buff, std::size_t offset) override {
+	inline void writeTo(char *buff, std::size_t offset) {
 		std::memcpy(buff + offset, &v0, sizeof(vec3));
 		std::memcpy(buff + offset + sizeof(vec3), &v1, sizeof(vec3));
 		std::memcpy(buff + offset + 2 * sizeof(vec3), &v2, sizeof(vec3));
 	}
 
-	inline void print(std::ostream &os) const override {
-		os << "Triangle: v0 = " << v0 << ", v1 = " << v1 << ", v2 = " << v2;
+	inline void print(std::ostream &os) const {
+		os << "Triangle: v0 = " << v0 << ", v1 = " << v1 << ", v2 = " << v2 << ", index = " << index << std::endl;
+		;
 	}
 };

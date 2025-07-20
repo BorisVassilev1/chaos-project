@@ -11,7 +11,9 @@ class Mesh {
 
 	std::size_t materialIndex = 0;
 
-	ygl::bvh::BVHTree bvh;
+	using BVHType = ygl::bvh::TriangleBVH;
+
+	BVHType bvh;
 
    public:
 	Mesh()						 = default;
@@ -70,11 +72,11 @@ class Mesh {
 			indices.emplace_back(idx0, idx1, idx2);
 			const auto triangle = Triangle(this->vertices[idx0], this->vertices[idx1], this->vertices[idx2], i / 3);
 			triangleNormals.push_back(normalize(triangle.normal()));
-			bvh.addPrimitive(new Triangle(triangle));
+			bvh.addPrimitive(triangle);
 		}
 		normals.resize(vertices.size(), vec3(0.0f));
 		recalculateNormals();
-		bvh.build(ygl::bvh::BVHTree::Purpose::Mesh);
+		bvh.build(BVHType::Purpose::Mesh);
 
 		if (obj.find("material_index") != obj.end()) {
 			materialIndex = obj["material_index"].as<JSONNumber>();
