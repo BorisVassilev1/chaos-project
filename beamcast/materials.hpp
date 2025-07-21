@@ -27,7 +27,7 @@ class DiffuseMaterial : public Material {
 	Texture *albedo;
 	vec3  albedoColor;
 
-	//DiffuseMaterial(const vec3 &albedo) : albedo(albedo) {}
+	DiffuseMaterial(const vec3 &albedo) : albedo(nullptr), albedoColor(albedo) {}
 
 	DiffuseMaterial(const JSONObject &obj, const Scene &scene);
 	vec4 shade(const RayHit &hit, const Ray &, const Scene &scene) const override;

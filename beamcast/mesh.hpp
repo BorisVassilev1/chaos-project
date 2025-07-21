@@ -37,7 +37,7 @@ class Mesh {
 		this->texCoords.reserve(vertices.size());
 		if (obj.find("uvs") == obj.end()) {
 			texCoords.resize(vertices.size(), vec3(0.0f));
-			dbLog(dbg::LOG_WARNING, "No texture coordinates found in triangle object, using default ones.");
+			dbLog(dbg::LOG_WARNING, "No texture coordinates found in triangle object.");
 		} else {
 			auto& texCoordsJSON = obj["uvs"].as<JSONArray>();
 			assert(texCoordsJSON.size() == verticesJSON.size());

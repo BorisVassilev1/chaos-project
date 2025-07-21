@@ -54,19 +54,24 @@ Scene::Scene(const std::string_view &filename) {
 			}
 		}
 
-		auto &materialsJSON = jo["materials"].as<JSONArray>();
-		for (const auto &j : materialsJSON) {
-			auto &obj = j->as<JSONObject>();
-			if (obj["type"].as<JSONString>() == std::string_view("diffuse")) {
-				materials.emplace_back(std::make_unique<DiffuseMaterial>(obj, *this));
-			} else if (obj["type"].as<JSONString>() == std::string_view("reflective")) {
-				materials.emplace_back(std::make_unique<ReflectiveMaterial>(obj));
-			} else if (obj["type"].as<JSONString>() == std::string_view("refractive")) {
-				materials.emplace_back(std::make_unique<RefractiveMaterial>(obj));
-			} else if (obj["type"].as<JSONString>() == std::string_view("constant")) {
-				materials.emplace_back(std::make_unique<ConstantMaterial>(obj));
-			} else {
-				throw std::runtime_error("Unknown material type: " + std::string(obj["type"].as<JSONString>()));
+		if (jo.find("materials") == jo.end()) {
+			dbLog(dbg::LOG_WARNING, "No materials found in scene file, using default materials.");
+			materials.emplace_back(std::make_unique<DiffuseMaterial>(vec3(1.0)));
+		} else {
+			auto &materialsJSON = jo["materials"].as<JSONArray>();
+			for (const auto &j : materialsJSON) {
+				auto &obj = j->as<JSONObject>();
+				if (obj["type"].as<JSONString>() == std::string_view("diffuse")) {
+					materials.emplace_back(std::make_unique<DiffuseMaterial>(obj, *this));
+				} else if (obj["type"].as<JSONString>() == std::string_view("reflective")) {
+					materials.emplace_back(std::make_unique<ReflectiveMaterial>(obj));
+				} else if (obj["type"].as<JSONString>() == std::string_view("refractive")) {
+					materials.emplace_back(std::make_unique<RefractiveMaterial>(obj));
+				} else if (obj["type"].as<JSONString>() == std::string_view("constant")) {
+					materials.emplace_back(std::make_unique<ConstantMaterial>(obj));
+				} else {
+					throw std::runtime_error("Unknown material type: " + std::string(obj["type"].as<JSONString>()));
+				}
 			}
 		}
 
@@ -77,4 +82,3 @@ Scene::Scene(const std::string_view &filename) {
 		throw;
 	}
 }
-

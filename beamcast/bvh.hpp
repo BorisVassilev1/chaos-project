@@ -321,7 +321,7 @@ void BVHTree<Element>::build(Super::Purpose purpose) {
 	// build both trees
 	Timer buildTimer;
 	build(root, 0);
-	dbLog(dbg::LOG_INFO, "Main Tree built: ", buildTimer.elapsed<std::chrono::milliseconds>());
+	dbLog(dbg::LOG_INFO, "Main Tree built: ", buildTimer.elapsed<std::chrono::milliseconds>(), "ms");
 
 	buildFastTree();
 
