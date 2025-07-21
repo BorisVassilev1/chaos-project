@@ -10,3 +10,5 @@ scenes/*
 *.obj
 *.blend*
 .cache/
+
+*.json

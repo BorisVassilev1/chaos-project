@@ -40,8 +40,12 @@ class Camera {
 		const auto &pos = obj["position"].as<JSONArray>();
 		auto		t	= Transpose(view_matrix);
 		t[3]			= vec4(pos[0].as<JSONNumber>(), pos[1].as<JSONNumber>(), pos[2].as<JSONNumber>(), 1.f);
-
-		fov = toRadians(90.0f);
+	
+		if(obj.find("fov") != obj.end()) {
+			fov = toRadians(obj["fov"].as<JSONNumber>());
+		} else {
+			fov = toRadians(90.0f);
+		}
 	}
 
 	void setResolution(const ivec2 &res) {
