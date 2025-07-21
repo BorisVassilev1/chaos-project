@@ -5,6 +5,7 @@ Scene::Scene(const std::string_view &filename) {
 	this->scenePath = filename;
 	try {
 		auto json = JSONFromFile(filename);
+		dbLog(dbg::LOG_DEBUG, "Parsed JSON from scene file: ", filename);
 		if (json == nullptr) { throw std::runtime_error("Failed to load scene from file: " + std::string(filename)); }
 
 		if (json->getType() != JSONType::Object) { throw std::runtime_error("Scene file must contain a JSON object"); }

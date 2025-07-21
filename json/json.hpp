@@ -4,17 +4,17 @@
 #include <DPDA/token.h>
 #include <cassert>
 
-extern Token String;
-extern Token Number;
-extern Token Boolean;
-extern Token Null;
-extern Token Object;
-extern Token Array;
-extern Token Value;
-extern Token PropertyList;
-extern Token PropertyList_;
-extern Token ArrayList;
-extern Token ArrayList_;
+extern const Token String;
+extern const Token Number;
+extern const Token Boolean;
+extern const Token Null;
+extern const Token Object;
+extern const Token Array;
+extern const Token Value;
+extern const Token PropertyList;
+extern const Token PropertyList_;
+extern const Token ArrayList;
+extern const Token ArrayList_;
 
 class TokenizedString : std::vector<Token> {
    public:
@@ -42,19 +42,10 @@ TokenizedString tokenize(const std::string& str);
 
 CFG<Token>& getJSONGrammar();
 
-class JSONParser : public Parser<Token> {
-	JSONParser() : Parser<Token>(getJSONGrammar()) {}
-
-   public:
-	static JSONParser& getInstance() {
-		static JSONParser instance;
-		return instance;
-	}
-};
 
 enum class JSONType { NONE, String, Number, Boolean, Null, Object, Array };
 
-std::ostream& operator<<(std::ostream& out, const JSONType& type);
+std::ostream&	 operator<<(std::ostream& out, const JSONType& type);
 std::string_view toString(JSONType type);
 
 template <>
@@ -221,3 +212,24 @@ std::unique_ptr<JSON> parseTreeToJSON(const std::unique_ptr<ParseNode<Token>>& n
 std::unique_ptr<JSON> parseJSON(std::istream& in);
 
 std::unique_ptr<JSON> JSONFromFile(const std::string_view& filename);
+
+class JSONParser : public Parser<Token> {
+	JSONParser() : Parser<Token>(getJSONGrammar()) {}
+
+	std::unique_ptr<JSON> makeParseTree(
+		const std::vector<std::reference_wrapper<const Parser<Token>::DeltaMap::value_type>>& productions,
+		const std::vector<Token>& word, int& k, int& j);
+
+   public:
+	auto parse(const std::vector<Token>& tokens) {
+		auto [accepted, prod] = generateProductions(tokens);
+		if (!accepted) { throw ParseError("Failed to parse JSON", 0); }
+		int i = 0, k = 0;
+		return makeParseTree(prod, tokens, i, k);
+	}
+
+	static JSONParser& getInstance() {
+		static JSONParser instance;
+		return instance;
+	}
+};

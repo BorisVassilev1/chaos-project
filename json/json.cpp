@@ -1,17 +1,33 @@
 #include <json/json.hpp>
 #include <fstream>
+#include "log.hpp"
+#include "util/utils.hpp"
 
-Token String		= Token::createToken("String");
-Token Number		= Token::createToken("Number");
-Token Boolean		= Token::createToken("Boolean");
-Token Null			= Token::createToken("Null");
-Token Object		= Token::createToken("Object");
-Token Array			= Token::createToken("Array");
-Token Value			= Token::createToken("Value");
-Token PropertyList	= Token::createToken("PropertyList");
-Token PropertyList_ = Token::createToken("PropertyList'");
-Token ArrayList		= Token::createToken("ArrayList");
-Token ArrayList_	= Token::createToken("ArrayList'");
+const constexpr Token String		= Token::createTokenIKWIAD(1001ull);
+const constexpr Token Number		= Token::createTokenIKWIAD(1002ull);
+const constexpr Token Boolean		= Token::createTokenIKWIAD(1003ull);
+const constexpr Token Null			= Token::createTokenIKWIAD(1004ull);
+const constexpr Token Object		= Token::createTokenIKWIAD(1005ull);
+const constexpr Token Array			= Token::createTokenIKWIAD(1006ull);
+const constexpr Token Value			= Token::createTokenIKWIAD(1007ull);
+const constexpr Token PropertyList	= Token::createTokenIKWIAD(1008ull);
+const constexpr Token PropertyList_ = Token::createTokenIKWIAD(1009ull);
+const constexpr Token ArrayList		= Token::createTokenIKWIAD(1010ull);
+const constexpr Token ArrayList_	= Token::createTokenIKWIAD(1011ull);
+
+JOB(asdasd, {
+	Token::createToken("String", 1001);
+	Token::createToken("Number", 1002);
+	Token::createToken("Boolean", 1003);
+	Token::createToken("Null", 1004);
+	Token::createToken("Object", 1005);
+	Token::createToken("Array", 1006);
+	Token::createToken("Value", 1007);
+	Token::createToken("PropertyList", 1008);
+	Token::createToken("PropertyList'", 1009);
+	Token::createToken("ArrayList", 1010);
+	Token::createToken("ArrayList'", 1011);
+});
 
 TokenizedString tokenize(const std::string& str) {
 	std::vector<Token> tokens;
@@ -93,6 +109,45 @@ CFG<Token>& getJSONGrammar() {
 	return g;
 };
 
+#include <stack>
+// non-recursive
+std::unique_ptr<JSON> JSONParser::makeParseTree(
+	const std::vector<std::reference_wrapper<const Parser<Token>::DeltaMap::value_type>>& productions,
+	const std::vector<Token>& word, int& k, int& j) {
+	std::size_t prodIndex = 0;
+	std::size_t wordIndex = 0;
+
+	std::stack<std::unique_ptr<JSON>*> stack;
+	std::unique_ptr<JSON>			   root;
+
+	// TODO:
+	std::unique_ptr<JSON>* current = nullptr;
+	stack.push(&root);
+	while (prodIndex < productions.size() && wordIndex < word.size()) {
+		current					 = stack.top();
+		const auto& [lhs, rhs]	 = productions[prodIndex].get();
+		const auto& [_, _, FROM] = lhs;
+		const auto& [_, TO]		 = rhs;
+		dbLog(dbg::LOG_DEBUG, "parsing: ", FROM);
+
+		switch (FROM.value) {	  // always a non-terminal
+			case Object.value: {
+				*current = std::make_unique<JSONObject>();
+				break;
+			}
+			case Value.value: {
+				++prodIndex;
+				continue;
+			}
+			default: throw std::runtime_error(std::format("Unexpected non-terminal: {}", FROM));
+		};
+	}
+
+	root->print(std::cout);
+	std::cout << std::endl;
+	return root;
+}
+
 std::ostream& operator<<(std::ostream& out, const JSONType& type) {
 	switch (type) {
 		case JSONType::String: out << "String"; break;
@@ -156,21 +211,19 @@ std::unique_ptr<JSON> parseTreeToJSON(const std::unique_ptr<ParseNode<Token>>& n
 	throw std::runtime_error(std::format("Unknown JSON node type: {}", node->value));
 }
 
-
 std::unique_ptr<JSON> parseJSON(std::istream& in) {
-	auto tokens = tokenize(std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()));
-	auto tree   = JSONParser::getInstance().parse(tokens.get());
-	if (!tree) {
-		throw std::runtime_error("Failed to parse JSON");
-	}
-	return parseTreeToJSON(tree);
+	Timer t;
+	auto  tokens = tokenize(std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()));
+	dbLog(dbg::LOG_DEBUG, "done tokenizing ", t.elapsed<std::chrono::milliseconds>(), "ms");
+	auto tree = JSONParser::getInstance().parse(tokens.get());
+	dbLog(dbg::LOG_DEBUG, "done parsing JSON ", t.elapsed<std::chrono::milliseconds>(), "ms");
+	if (!tree) { throw std::runtime_error("Failed to parse JSON"); }
+	// return parseTreeToJSON(tree);
+	return tree;
 }
 
-std::unique_ptr<JSON> JSONFromFile(const std::string_view &filename) {
+std::unique_ptr<JSON> JSONFromFile(const std::string_view& filename) {
 	std::ifstream file(filename.data());
-	if (!file.is_open()) {
-		throw std::runtime_error(std::format("Failed to open JSON file: {}", filename));
-	}
+	if (!file.is_open()) { throw std::runtime_error(std::format("Failed to open JSON file: {}", filename)); }
 	return parseJSON(file);
 };
-
