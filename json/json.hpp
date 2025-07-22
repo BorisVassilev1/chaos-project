@@ -39,7 +39,7 @@ class TokenizedString : std::vector<Token> {
 	auto get() const -> const std::vector<Token>& { return *this; }
 };
 
-TokenizedString tokenize(const std::string& str);
+TokenizedString tokenize(const std::string_view& str);
 
 CFG<Token>& getJSONGrammar();
 

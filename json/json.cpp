@@ -30,58 +30,34 @@ JOB(asdasd, {
 	Token::createToken("ArrayList'", 1011);
 });
 
-TokenizedString tokenize(const std::string& str) {
+TokenizedString tokenize(const std::string_view& str) {
 	std::vector<Token> tokens;
 	for (std::size_t i = 0; i < str.size(); ++i) {
-		if (std::isspace(str[i])) { continue; }
-		if (str[i] == '"') {
-			bool escaped = false;
-			auto s		 = new std::string();
+		if (std::isspace(str[i])) {}
+		else if (str[i] == '"') {
+			auto s = new std::string();
 			++i;
-			while (i < str.size() && (str[i] != '"' || escaped)) {
-				if (str[i] == '\\') {
-					escaped = !escaped;
-					s->push_back(str[i]);
-				} else {
-					if (!escaped) {
-						s->push_back(str[i]);
-					} else {
-						switch (str[i]) {
-							case 'n': s->push_back('\n'); break;
-							case 't': s->push_back('\t'); break;
-							case 'r': s->push_back('\r'); break;
-							case 'b': s->push_back('\b'); break;
-							case 'f': s->push_back('\f'); break;
-							case '"': s->push_back('"'); break;
-							case '\\': s->push_back('\\'); break;
-							default: throw std::runtime_error("Invalid escape sequence in string");
-						}
-					}
-					escaped = false;
-				}
+			while (i < str.size() && str[i] != '"') {
+				s->push_back(str[i]);
 				++i;
 			}
 			tokens.push_back(String);
 			tokens.back().data = (uint8_t*)s;
-		}
-		if (std::isdigit(str[i]) || (str[i] == '-' && i + 1 < str.size() && std::isdigit(str[i + 1]))) {
-			std::size_t len = 0;
-			double		num = std::stod(str.substr(i), &len);
+		} else if (std::isdigit(str[i]) || str[i] == '-') {
+			char*		ptr = (char*)str.data() + i + 20u;
+			double		num = strtof(str.data() + i, &ptr);
 			tokens.push_back(Number);
 			tokens.back().data = *reinterpret_cast<uint8_t**>(&num);
-			i += len - 1;
-		}
-		if (str.substr(i).starts_with("true")) {
+			i = ptr - str.data() - 1;
+		} else if (str.substr(i).starts_with("true")) {
 			tokens.push_back(Boolean);
 			tokens.back().data = (uint8_t*)1;
 			i += 3;
-		}
-		if (str.substr(i).starts_with("false")) {
+		} else if (str.substr(i).starts_with("false")) {
 			tokens.push_back(Boolean);
 			tokens.back().data = (uint8_t*)0;
 			i += 4;
-		}
-		if (str.substr(i).starts_with("null")) {
+		} else if (str.substr(i).starts_with("null")) {
 			tokens.push_back(Null);
 			i += 2;
 		} else tokens.push_back(str[i]);
@@ -130,7 +106,7 @@ static std::unique_ptr<JSON> jsonFromTerminal(const Token& src) {
 // non-recursive
 std::unique_ptr<JSON> JSONParser::makeParseTree(
 	const std::vector<std::reference_wrapper<const Parser<Token>::DeltaMap::value_type>>& productions,
-	const std::vector<Token>& word, int&, int&) {
+	const std::vector<Token>&															  word, int&, int&) {
 	std::size_t prodIndex = 0;
 	std::size_t wordIndex = 0;
 
@@ -150,7 +126,7 @@ std::unique_ptr<JSON> JSONParser::makeParseTree(
 		const auto& [_, TO]			 = rhs;
 
 		if (progress >= TO.size()) {
-			//dbLog(dbg::LOG_DEBUG, "Production complete: ", lhs, " -> ", rhs, " at progress ", progress);
+			// dbLog(dbg::LOG_DEBUG, "Production complete: ", lhs, " -> ", rhs, " at progress ", progress);
 			stackProd.pop();
 			if (!stackProd.empty()) stackProd.top().second += 1;
 
@@ -162,7 +138,7 @@ std::unique_ptr<JSON> JSONParser::makeParseTree(
 			case PropertyList.value:
 			case PropertyList_.value:
 				i = TO.size() == 5;
-				if(progress < 3u + i) break;
+				if (progress < 3u + i) break;
 				assert(stack.size() >= 3);
 				{
 					auto value = std::move(stack.top());
@@ -176,7 +152,7 @@ std::unique_ptr<JSON> JSONParser::makeParseTree(
 			case ArrayList.value:
 			case ArrayList_.value:
 				i = TO.size() == 3;
-				if (progress < 1 +i) break;
+				if (progress < 1 + i) break;
 				assert(stack.size() >= 2);
 				{
 					auto value = std::move(stack.top());
@@ -192,11 +168,11 @@ std::unique_ptr<JSON> JSONParser::makeParseTree(
 			if (nexttoken != nullptr) stack.emplace(jsonFromTerminal(word[wordIndex]));
 			++wordIndex;
 			++progress;
-			//dbLog(dbg::LOG_DEBUG, "Matched terminal: ", TO[progress - 1], " at word index ", wordIndex);
+			// dbLog(dbg::LOG_DEBUG, "Matched terminal: ", TO[progress - 1], " at word index ", wordIndex);
 			continue;
 		} else {
 			if (!getJSONGrammar().nonTerminals.contains(TO[progress])) {
-				//dbLog(dbg::LOG_ERROR, "Failed to match terminal: ", TO[progress], " with ", word[wordIndex]);
+				// dbLog(dbg::LOG_ERROR, "Failed to match terminal: ", TO[progress], " with ", word[wordIndex]);
 				assert(false);
 			}
 			++prodIndex;
@@ -210,9 +186,7 @@ std::unique_ptr<JSON> JSONParser::makeParseTree(
 		}
 	}
 
-	if (stack.size() != 1) {
-		dbLog(dbg::LOG_ERROR, "Parse tree is not complete, stack size: ", stack.size());
-	}
+	if (stack.size() != 1) { dbLog(dbg::LOG_ERROR, "Parse tree is not complete, stack size: ", stack.size()); }
 
 	dbLog(dbg::LOG_DEBUG, "Parse tree in ", t.elapsed<std::chrono::milliseconds>(), "ms");
 
