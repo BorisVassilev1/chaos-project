@@ -42,13 +42,15 @@ with open("export.json", "w") as f:
     for l, obj in enumerate(objects):
         mesh = obj.data
         location = obj.location
+        matrix = obj.matrix_world
         print("Exporting object:", obj.name)
         print("location:", location)
         f.write('    {\n')
         f.write(f'      "name": "{mesh.name}",\n')
         f.write('      "vertices": [\n')
         for i, v in enumerate(mesh.vertices):
-            f.write(f'        {v.co.x + location.x}, {v.co.y + location.y}, {v.co.z + location.z}')
+            w = matrix @ v.co
+            f.write(f'        {w.x}, {w.y}, {w.z}')
             if i < len(mesh.vertices) - 1:
                 f.write(',')
             f.write('\n')
@@ -75,7 +77,7 @@ with open("export.json", "w") as f:
         f.write('      "position": [\n')
         f.write(f'        {light.location.x}, {light.location.y}, {light.location.z}\n')
         f.write('      ],\n')
-        f.write(f'      "intensity": {light.data.energy}\n')
+        f.write(f'      "intensity": {light.data.energy / math.pi}\n')
         f.write('    }')
         if l < len(lights) - 1:
             f.write(',\n')

@@ -50,7 +50,8 @@ class Camera {
 
 	void setResolution(const ivec2 &res) {
 		resolution = res;
-		aspect		= (float)resolution.x / (float)resolution.y;
+		//aspect		= (float)resolution.x / (float)resolution.y;
+		aspect =(float)resolution.y / (float)resolution.x;
 	}
 
 	Ray generate_ray(ivec2 pixel) const {
@@ -59,7 +60,8 @@ class Camera {
 
 		vec2 screen = ndc * 2.0f - 1.0f;
 
-		screen.x *= aspect;
+		//screen.x *= aspect;
+		screen.y *= aspect;
 
 		vec3 direction = normalize(vec3(screen.x * tan(fov / 2.0f), screen.y * tan(fov / 2.0f), -1.0f));
 		direction	   = (view_matrix * vec4(direction, 0.0f)).xyz();

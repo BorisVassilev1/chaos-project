@@ -1,3 +1,4 @@
+#include <iomanip>
 #include <json/json.hpp>
 #include <fstream>
 #include "log.hpp"
@@ -62,21 +63,25 @@ TokenizedString tokenize(const std::string& str) {
 			}
 			tokens.push_back(String);
 			tokens.back().data = (uint8_t*)s;
-		} else if (std::isdigit(str[i]) || (str[i] == '-' && i + 1 < str.size() && std::isdigit(str[i + 1]))) {
+		}
+		if (std::isdigit(str[i]) || (str[i] == '-' && i + 1 < str.size() && std::isdigit(str[i + 1]))) {
 			std::size_t len = 0;
 			double		num = std::stod(str.substr(i), &len);
 			tokens.push_back(Number);
 			tokens.back().data = *reinterpret_cast<uint8_t**>(&num);
 			i += len - 1;
-		} else if (str.substr(i).starts_with("true")) {
+		}
+		if (str.substr(i).starts_with("true")) {
 			tokens.push_back(Boolean);
 			tokens.back().data = (uint8_t*)1;
 			i += 3;
-		} else if (str.substr(i).starts_with("false")) {
+		}
+		if (str.substr(i).starts_with("false")) {
 			tokens.push_back(Boolean);
 			tokens.back().data = (uint8_t*)0;
 			i += 4;
-		} else if (str.substr(i).starts_with("null")) {
+		}
+		if (str.substr(i).starts_with("null")) {
 			tokens.push_back(Null);
 			i += 2;
 		} else tokens.push_back(str[i]);
@@ -110,42 +115,108 @@ CFG<Token>& getJSONGrammar() {
 };
 
 #include <stack>
+
+static std::unique_ptr<JSON> jsonFromTerminal(const Token& src) {
+	switch (src.value) {
+		case String.value: return std::make_unique<JSONString>(*reinterpret_cast<std::string*>(src.data));
+		case Number.value: return std::make_unique<JSONNumber>(*reinterpret_cast<const double*>(&src.data));
+		case Boolean.value: return std::make_unique<JSONBoolean>(*reinterpret_cast<const bool*>(&src.data));
+		case Null.value: return std::make_unique<JSONNull>();
+		default: return nullptr;
+	}
+	return nullptr;
+}
+
 // non-recursive
 std::unique_ptr<JSON> JSONParser::makeParseTree(
 	const std::vector<std::reference_wrapper<const Parser<Token>::DeltaMap::value_type>>& productions,
-	const std::vector<Token>& word, int& k, int& j) {
+	const std::vector<Token>& word, int&, int&) {
 	std::size_t prodIndex = 0;
 	std::size_t wordIndex = 0;
 
-	std::stack<std::unique_ptr<JSON>*> stack;
-	std::unique_ptr<JSON>			   root;
+	Timer t;
+	using Prod = std::reference_wrapper<const Parser<Token>::DeltaMap::value_type>;
 
-	// TODO:
-	std::unique_ptr<JSON>* current = nullptr;
-	stack.push(&root);
-	while (prodIndex < productions.size() && wordIndex < word.size()) {
-		current					 = stack.top();
-		const auto& [lhs, rhs]	 = productions[prodIndex].get();
-		const auto& [_, _, FROM] = lhs;
-		const auto& [_, TO]		 = rhs;
-		dbLog(dbg::LOG_DEBUG, "parsing: ", FROM);
+	std::stack<std::unique_ptr<JSON>> stack;	 // history
 
-		switch (FROM.value) {	  // always a non-terminal
-			case Object.value: {
-				*current = std::make_unique<JSONObject>();
+	std::stack<std::pair<Prod, std::size_t>> stackProd;		// history of productions
+	stackProd.emplace(productions[0], 0);
+	dbLog(dbg::LOG_DEBUG, "Starting parse with productions: ", productions.size(), " and word size: ", word.size());
+
+	while (!stackProd.empty()) {
+		auto& [production, progress] = stackProd.top();
+		const auto& [lhs, rhs]		 = production.get();
+		const auto& [_, _, FROM]	 = lhs;
+		const auto& [_, TO]			 = rhs;
+
+		if (progress >= TO.size()) {
+			//dbLog(dbg::LOG_DEBUG, "Production complete: ", lhs, " -> ", rhs, " at progress ", progress);
+			stackProd.pop();
+			if (!stackProd.empty()) stackProd.top().second += 1;
+
+			continue;
+		}
+
+		unsigned int i = 0;
+		switch (FROM.value) {
+			case PropertyList.value:
+			case PropertyList_.value:
+				i = TO.size() == 5;
+				if(progress < 3u + i) break;
+				assert(stack.size() >= 3);
+				{
+					auto value = std::move(stack.top());
+					stack.pop();
+					auto key = std::move(stack.top());
+					stack.pop();
+					auto& obj = stack.top()->as<JSONObject>();
+					obj.properties.emplace(key->as<JSONString>(), std::move(value));
+				}
 				break;
-			}
-			case Value.value: {
-				++prodIndex;
-				continue;
-			}
-			default: throw std::runtime_error(std::format("Unexpected non-terminal: {}", FROM));
+			case ArrayList.value:
+			case ArrayList_.value:
+				i = TO.size() == 3;
+				if (progress < 1 +i) break;
+				assert(stack.size() >= 2);
+				{
+					auto value = std::move(stack.top());
+					stack.pop();
+					auto& arr = stack.top()->as<JSONArray>();
+					arr.elements.push_back(std::move(value));
+				}
+				break;
 		};
+
+		if (word[wordIndex] == TO[progress]) {	   // terminal
+			auto nexttoken = jsonFromTerminal(word[wordIndex]);
+			if (nexttoken != nullptr) stack.emplace(jsonFromTerminal(word[wordIndex]));
+			++wordIndex;
+			++progress;
+			//dbLog(dbg::LOG_DEBUG, "Matched terminal: ", TO[progress - 1], " at word index ", wordIndex);
+			continue;
+		} else {
+			if (!getJSONGrammar().nonTerminals.contains(TO[progress])) {
+				//dbLog(dbg::LOG_ERROR, "Failed to match terminal: ", TO[progress], " with ", word[wordIndex]);
+				assert(false);
+			}
+			++prodIndex;
+			if (prodIndex < productions.size()) stackProd.emplace(productions[prodIndex], 0);
+
+			switch (TO[progress].value) {
+				case Object.value: stack.emplace(std::make_unique<JSONObject>()); break;
+				case Array.value: stack.emplace(std::make_unique<JSONArray>()); break;
+			}
+			// dbLog(dbg::LOG_DEBUG, "Pushing production: ", productions[prodIndex].get());
+		}
 	}
 
-	root->print(std::cout);
-	std::cout << std::endl;
-	return root;
+	if (stack.size() != 1) {
+		dbLog(dbg::LOG_ERROR, "Parse tree is not complete, stack size: ", stack.size());
+	}
+
+	dbLog(dbg::LOG_DEBUG, "Parse tree in ", t.elapsed<std::chrono::milliseconds>(), "ms");
+
+	return std::move(stack.top());
 }
 
 std::ostream& operator<<(std::ostream& out, const JSONType& type) {

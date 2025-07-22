@@ -42,9 +42,13 @@ class Timer {
 	Timer() : start(std::chrono::high_resolution_clock::now()) {}
 
 	template<typename T>
-	auto elapsed() const {
+	inline auto elapsed() const {
 		auto end = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<T>(end - start);
 		return duration.count();
+	}
+
+	inline void reset() {
+		start = std::chrono::high_resolution_clock::now();
 	}
 };

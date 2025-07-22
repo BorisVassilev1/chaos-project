@@ -3,6 +3,7 @@
 #include <DPDA/parser.h>
 #include <DPDA/token.h>
 #include <cassert>
+#include "log.hpp"
 
 extern const Token String;
 extern const Token Number;
@@ -222,7 +223,9 @@ class JSONParser : public Parser<Token> {
 
    public:
 	auto parse(const std::vector<Token>& tokens) {
+		Timer timer;
 		auto [accepted, prod] = generateProductions(tokens);
+		dbLog(dbg::LOG_DEBUG, "JSONParser: generated productions in ", timer.elapsed<std::chrono::milliseconds>(), "ms");
 		if (!accepted) { throw ParseError("Failed to parse JSON", 0); }
 		int i = 0, k = 0;
 		return makeParseTree(prod, tokens, i, k);
