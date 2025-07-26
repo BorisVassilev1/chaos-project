@@ -27,14 +27,18 @@ class Renderer {
 	}
 
 	void render() {
-		auto I = segmentImage(image.resolution(), ivec2(32, 32));
+		auto		  I = segmentImage(image.resolution(), ivec2(32, 32));
 		PercentLogger logger("Rendering", I.size());
 		scene.camera.setResolution(image.resolution());
 
 		auto f = [&](const std::any &job) {
 			auto segment = std::any_cast<std::pair<ivec2, ivec2>>(job);
 			for (const auto &coord : iter2D(segment.first, segment.second)) {
-				auto color				= shadePixel(coord);
+				RGBA32F color = 0;
+				for (int i = 0; i < 16; ++i) {
+					color += shadePixel(coord);
+				}
+				color /= 16.f;	 // Average over 10 samples
 				color					= clamp(color, 0.f, 1.f);
 				image(coord.x, coord.y) = color;
 			}

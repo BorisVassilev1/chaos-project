@@ -55,10 +55,10 @@ Scene::Scene(const std::string_view &filename) {
 			}
 		}
 
+		materials.emplace_back(std::make_unique<DiffuseMaterial>(vec3(1.0)));
+		materials.back()->smooth = false;
 		if (jo.find("materials") == jo.end()) {
 			dbLog(dbg::LOG_WARNING, "No materials found in scene file, using default materials.");
-			materials.emplace_back(std::make_unique<DiffuseMaterial>(vec3(1.0)));
-			materials.back()->smooth = true;
 		} else {
 			auto &materialsJSON = jo["materials"].as<JSONArray>();
 			for (const auto &j : materialsJSON) {

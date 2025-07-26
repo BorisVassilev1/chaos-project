@@ -45,8 +45,10 @@ class Scene {
 			if (r.type == Ray::Type::Shadow && !material->castsShadows) continue;
 			auto hitnew = object.intersect(r);
 			if (hitnew.t > 0.0001f && hitnew.t < hit.t) {
-				hit				= hitnew;
-				hit.objectIndex = i;
+				if (material->doubleSided || dot(hitnew.normal, r.direction) < 0.0f) {
+					hit				= hitnew;
+					hit.objectIndex = i;
+				}
 			}
 		}
 		return hit;

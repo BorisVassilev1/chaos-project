@@ -84,7 +84,8 @@ class ImageTexture : public Texture {
 		const auto &filename	= obj["file_path"].as<JSONString>();
 		auto		sceneFolder = scenePath.parent_path();
 		if (sceneFolder.empty()) { sceneFolder = std::filesystem::current_path(); }
-		auto fullPath = sceneFolder.concat(std::string_view(filename));
+		auto fullPath = std::filesystem::path(std::string_view(filename));
+		if (fullPath.is_relative()) fullPath = sceneFolder.concat(fullPath.string());
 
 		image.loadFromFile(fullPath);
 	}

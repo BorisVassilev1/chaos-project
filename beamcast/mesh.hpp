@@ -79,9 +79,9 @@ class Mesh {
 		bvh.build(BVHType::Purpose::Mesh);
 
 		if (obj.find("material_index") != obj.end()) {
-			materialIndex = obj["material_index"].as<JSONNumber>();
+			materialIndex = obj["material_index"].as<JSONNumber>() + 1;
 		} else {
-			materialIndex = 0;	   // Default to first material if not specified
+			materialIndex = 0;	   // Default to first material if not specified TODO: bad
 		}
 
 		dbLog(dbg::LOG_DEBUG, "Mesh created with ", vertices.size(), " vertices and ", indices.size(), " triangles.");
@@ -115,6 +115,8 @@ class Mesh {
 		RayHit hit;
 		assert(bvh.isBuilt() && "BVH must be built before intersection");
 		bvh.intersect(ray, 0.0001f, FLT_MAX, hit);
+		if(hit.triangleIndex != -1u)
+			hit.normal = triangleNormals[hit.triangleIndex];
 		return hit;
 	}
 

@@ -8,13 +8,17 @@ class Scene;
 class Material {
    public:
 	bool smooth : 1			 = false;
-	bool castsShadows : 1	 = true;
+	bool castsShadows : 1	 = false;
 	bool receivesShadows : 1 = true;
+	bool doubleSided : 1	 = false;
 
 	Material() = default;
 	Material(const JSONObject &obj, bool castsShadows = true, bool receivesShadows = true)
 		: castsShadows(castsShadows), receivesShadows(receivesShadows) {
 		if (obj.find("smooth_shading") != obj.end()) { smooth = obj["smooth_shading"].as<JSONBoolean>(); }
+		if (obj.find("back_face_culling") != obj.end()) {
+			doubleSided = !obj["back_face_culling"].as<JSONBoolean>();
+		}
 	}
 
 	virtual vec4 shade(const RayHit &hit, const Ray &ray, const Scene &scene) const = 0;
@@ -66,6 +70,7 @@ class RefractiveMaterial : public Material {
 		} else {
 			albedo = vec3(1.0f, 1.0f, 1.0f);	 // Default albedo
 		}
+		doubleSided = true;
 	}
 
 	vec4 shade(const RayHit &hit, const Ray &, const Scene &scene) const override;

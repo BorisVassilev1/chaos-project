@@ -3,7 +3,7 @@
 #include <materials.hpp>
 #include <scene.hpp>
 
-const float EPS		  = 0.001f;
+const float EPS		  = 0.00001f;
 const int	MAX_DEPTH = 5;
 
 DiffuseMaterial::DiffuseMaterial(const JSONObject &obj, const Scene &scene) : Material(obj, true, true) {
@@ -21,6 +21,24 @@ DiffuseMaterial::DiffuseMaterial(const JSONObject &obj, const Scene &scene) : Ma
 	} else {
 		throw std::runtime_error("Invalid albedo type for DiffuseMaterial");
 	}
+	doubleSided = false;
+}
+
+static inline float randomFloat() {
+	static uint32_t seed = 0x12345678;	// Fixed seed for reproduc
+	seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+	return float(seed) / float(0x7fffffff);
+}
+
+vec3 cosWeightedHemissphereDir(vec3 normal) {
+	float z = randomFloat() * 2.0 - 1.0;
+	float a = randomFloat() * 2.0 * M_PI;
+	float r = sqrt(1.0 - z * z);
+	float x = r * cos(a);
+	float y = r * sin(a);
+
+	// Convert unit vector in sphere to a cosine weighted vector in hemissphere
+	return normalize(normal + vec3(x, y, z));
 }
 
 vec4 DiffuseMaterial::shade(const RayHit &hit, const Ray &, const Scene &scene) const {
@@ -34,13 +52,27 @@ vec4 DiffuseMaterial::shade(const RayHit &hit, const Ray &, const Scene &scene) 
 
 		if (this->receivesShadows) {
 			auto shadowHit = scene.intersect(Ray(hit.pos + hit.normal * EPS, lightDir, Ray::Type::Shadow));
-			if (shadowHit.t > 0.1f && shadowHit.t * shadowHit.t < distanceSq - EPS) {
+			if (shadowHit.t > EPS && shadowHit.t * shadowHit.t < distanceSq - EPS) {
 				continue;	  // shadow
 			}
 		}
 
 		color += light.color * light.intensity * std::max(0.f, dot(hit.normal, lightDir)) / (4.f * M_PIf * distanceSq);
 	}
+
+	vec3	 randomDir = cosWeightedHemissphereDir(hit.normal);
+	Ray		 reflectedRay(hit.pos + randomDir * EPS, randomDir);
+	RayHit	 reflectedHit = scene.intersect(reflectedRay);
+	if (reflectedHit.objectIndex != -1u) {
+		reflectedHit.depth	 = hit.depth + 1;
+		const auto	mat_id	 = scene.objects[reflectedHit.objectIndex].getMaterialIndex();
+		const auto &material = scene.materials[mat_id];
+		scene.fillHitInfo(reflectedHit, reflectedRay, material->smooth);
+		color += material->shade(reflectedHit, reflectedRay, scene)._xyz() * std::max(0.f, dot(hit.normal, randomDir));
+	} else {
+		color += scene.backgroundColor.xyz();
+	}
+
 	if (this->albedo) {
 		color *= this->albedo->sample(hit);
 	} else {
