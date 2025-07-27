@@ -116,7 +116,7 @@ struct Triangle : public Primitive {
 
 		hit.t			  = t;
 		hit.uv			  = vec2(u, v);
-		hit.triangleIndex = index;
+		hit.triangleIndex = index; // TODO: index sould be redundant
 		return true;
 	}
 

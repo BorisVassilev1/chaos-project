@@ -27,7 +27,7 @@ Scene::Scene(const std::string_view &filename) {
 		auto &objectsJSON = jo["objects"].as<JSONArray>();
 		for (const auto &j : objectsJSON) {
 			auto &obj = j->as<JSONObject>();
-			objects.emplace_back(obj);
+			bvh.addPrimitive(new Mesh(*this, obj));
 		}
 
 		auto &lightsJSON = jo["lights"].as<JSONArray>();
@@ -77,7 +77,8 @@ Scene::Scene(const std::string_view &filename) {
 			}
 		}
 
-		dbLog(dbg::LOG_DEBUG, "Scene loaded with ", objects.size(), " objects, ", lights.size(), " lights, and ",
+		bvh.build();
+		dbLog(dbg::LOG_DEBUG, "Scene loaded with ", getObjects().size(), " objects, ", lights.size(), " lights, and ",
 			  materials.size(), " materials.");
 	} catch (const std::exception &e) {
 		clear();

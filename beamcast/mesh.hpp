@@ -2,7 +2,9 @@
 #include <intersectable.hpp>
 #include <bvh.hpp>
 
-class Mesh {
+class Scene;
+
+class Mesh : public Primitive {
 	std::vector<vec3>  vertices;
 	std::vector<vec3>  normals;
 	std::vector<vec3>  texCoords;
@@ -13,16 +15,17 @@ class Mesh {
 
 	using BVHType = ygl::bvh::TriangleBVH;
 
-	BVHType bvh;
+	BVHType		 bvh;
+	const Scene* scene;
 
    public:
-	Mesh()						 = default;
+	Mesh()						 = delete;
 	Mesh(const Mesh&)			 = delete;
 	Mesh(Mesh&&)				 = default;
 	Mesh& operator=(const Mesh&) = delete;
 	Mesh& operator=(Mesh&&)		 = default;
 
-	Mesh(const JSONObject& obj) {
+	Mesh(const Scene& scene, const JSONObject& obj) : scene(&scene) {
 		auto& verticesJSON = obj["vertices"].as<JSONArray>();
 		this->vertices.reserve(verticesJSON.size() / 3);
 		for (unsigned int i = 0; i < verticesJSON.size(); i += 3) {
@@ -32,6 +35,7 @@ class Mesh {
 			vec3 v0 = {verticesJSON[i].as<JSONNumber>(), verticesJSON[i + 1].as<JSONNumber>(),
 					   verticesJSON[i + 2].as<JSONNumber>()};
 			this->vertices.push_back(v0);
+			this->box.add(v0);
 		}
 
 		this->texCoords.reserve(vertices.size());
@@ -111,14 +115,7 @@ class Mesh {
 		}
 	}
 
-	inline RayHit intersect(const Ray& ray) const {
-		RayHit hit;
-		assert(bvh.isBuilt() && "BVH must be built before intersection");
-		bvh.intersect(ray, 0.0001f, FLT_MAX, hit);
-		if(hit.triangleIndex != -1u)
-			hit.normal = triangleNormals[hit.triangleIndex];
-		return hit;
-	}
+	bool intersect(const Ray& ray, float tMin, float tMax, RayHit& hit) const override;
 
 	inline void fillHitInfo(RayHit& hit, const Ray& ray, bool smooth = true) const {
 		if (hit.triangleIndex == -1u) return;
@@ -133,6 +130,13 @@ class Mesh {
 		hit.texCoords = texCoords[indices[hit.triangleIndex].x] * (1.0f - hit.uv.x - hit.uv.y) +
 						texCoords[indices[hit.triangleIndex].y] * hit.uv.x +
 						texCoords[indices[hit.triangleIndex].z] * hit.uv.y;
+		if (isnan(hit.normal)) {
+			dbLog(dbg::LOG_ERROR, "triangle normal invalid: ", hit.normal);
+			dbLog(dbg::LOG_ERROR, "ray: ", ray.origin, ray.direction);
+			dbLog(dbg::LOG_ERROR, "hit: ", hit.pos, hit.t, hit.normal, hit.uv, hit.triangleIndex, hit.objectIndex);
+			dbLog(dbg::LOG_ERROR, "normals: ", normals[indices[hit.triangleIndex].x],
+				  normals[indices[hit.triangleIndex].y], normals[indices[hit.triangleIndex].z]);
+		}
 	}
 
 	inline constexpr auto getMaterialIndex() const { return materialIndex; }
@@ -141,4 +145,12 @@ class Mesh {
 	inline constexpr auto& getNormals() const { return normals; }
 	inline constexpr auto& getIndices() const { return indices; }
 	inline constexpr auto& getTriangleNormals() const { return triangleNormals; }
+
+	void writeTo(char*, std::size_t) override {
+		assert(false && "Mesh::writeTo not implemented yet"); /* TODO: implement */
+	}
+
+	void print(std::ostream&) const override {
+		assert(false && "Mesh::print not implemented yet"); /* TODO: implement */
+	}
 };

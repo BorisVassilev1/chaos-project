@@ -86,8 +86,9 @@ struct AABB {
 		float t1 = -FLT_MAX;
 		float t2 = FLT_MAX;
 
-		vec3 t0s = (min - ray.origin) * (vec3(1.0f) / ray.direction);
-		vec3 t1s = (max - ray.origin) * (vec3(1.0f) / ray.direction);
+		vec3 one_over_raydir = vec3(1.0f) / ray.direction;
+		vec3 t0s			 = mult_safe((min - ray.origin), one_over_raydir);
+		vec3 t1s			 = mult_safe((max - ray.origin), one_over_raydir);
 
 		vec3 tsmaller = ::min(t0s, t1s);
 		vec3 tbigger  = ::max(t0s, t1s);

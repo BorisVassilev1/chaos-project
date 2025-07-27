@@ -5,6 +5,7 @@
 #include <camera.hpp>
 #include <scene.hpp>
 #include "renderer.hpp"
+#include <fenv.h>
 
 /*
 
@@ -17,15 +18,16 @@ bvh:				183ms
 */
 
 int main(int argc, char** argv) {
+	//feenableexcept(FE_INVALID);
 	if (argc <= 1) {
 		dbLog(dbg::LOG_ERROR, "No scene file provided.");
 		dbLog(dbg::LOG_ERROR, "Usage: ", argv[0], " <scene_file> [resolution_scale]");
 		return 1;
 	}
-
-	Scene sc;
+	
+	std::unique_ptr<Scene> sc;
 	try {
-		sc = Scene(argv[1]);
+		sc = std::make_unique<Scene>(argv[1]);
 	} catch (const std::exception& e) {
 		dbLog(dbg::LOG_ERROR, "Failed to load scene: ", e.what());
 		return 1;
@@ -35,7 +37,7 @@ int main(int argc, char** argv) {
 	if (argc > 2) {
 		if (argv[2] == std::string("-")) {
 			std::ofstream ofs("output.obj");
-			sc.serializeOBJ(ofs);
+			sc->serializeOBJ(ofs);
 			dbLog(dbg::LOG_INFO, "Scene exported to output.obj");
 			return 0;
 		}
@@ -57,7 +59,7 @@ int main(int argc, char** argv) {
 		}
 	}
 
-	Renderer rend(sc, resolution_scale, threadCount);
+	Renderer rend(*sc, resolution_scale, threadCount);
 	auto start = std::chrono::high_resolution_clock::now();
 	rend.render();
 	auto end = std::chrono::high_resolution_clock::now();

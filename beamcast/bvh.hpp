@@ -44,7 +44,8 @@ struct IntersectionAccelerator {
 	/// @brief Check if the accelerator is built
 	virtual bool isBuilt() const = 0;
 
-	virtual bool intersect(const Ray &ray, float tMin, float tMax, RayHit &intersection) const = 0;
+	using Filter = std::function<bool(const Element &)>;
+	virtual bool intersect(const Ray &ray, float tMin, float tMax, RayHit &intersection, const Filter &f) const = 0;
 
 	virtual ~IntersectionAccelerator() = default;
 };
@@ -66,6 +67,9 @@ class FakePointer {
 	inline constexpr const Element &operator*() const { return element; }
 	inline constexpr				operator bool() const { return (bool)element; }
 	inline constexpr bool			operator!() const { return !element; }
+
+	inline constexpr Element	   &get() { return element; }
+	inline constexpr const Element &get() const { return element; }
 };
 
 /**
@@ -104,7 +108,7 @@ class BVHTree : public IntersectionAccelerator<Element> {
 	struct FastNode {
 		AABB		box;
 		std::size_t right;	   // 4e9 is a puny number of primitives => long, not int
-		std::conditional_t<std::is_pointer_v<Element>, ElementPtr *, ElementPtr> primitives;
+		std::size_t primitives;
 
 		char splitAxis;
 		bool isLeaf() const {
@@ -193,10 +197,16 @@ class BVHTree : public IntersectionAccelerator<Element> {
 	void	 buildFastTree(std::unique_ptr<Node> &, std::vector<FastNode> &allNodes);
 	FastNode makeFastLeaf(std::unique_ptr<Node> &node);
 
-	bool intersect(long unsigned int nodeIndex, const Ray &ray, float tMin, float &tMax, RayHit &intersection) const;
-	bool intersect(const Ray &ray, float tMin, float tMax, RayHit &intersection) const override;
+	bool intersect(
+		long unsigned int nodeIndex, const Ray &ray, float tMin, float &tMax, RayHit &intersection,
+		const Super::Filter &f = [](const Element &) { return true; }) const;
+	bool intersect(
+		const Ray &ray, float tMin, float tMax, RayHit &intersection,
+		const Super::Filter &f = [](const Element &) { return true; }) const override;
 
 	~BVHTree();
+
+	const auto &getObjects() const {return allPrimitives;}
 };
 
 using TriangleBVH = BVHTree<Triangle>;
@@ -359,29 +369,21 @@ BVHTree<Element>::~BVHTree() {
 
 template <class Element>
 bool BVHTree<Element>::intersect(long unsigned int nodeIndex, const Ray &ray, float tMin, float &tMax,
-								 RayHit &intersection) const {
+								 RayHit &intersection, const IntersectionAccelerator<Element>::Filter &f) const {
 	bool			hasHit = false;
 	const FastNode *node   = &(fastNodes[nodeIndex]);
 
 	if (node->isLeaf()) {
 		// dbLog(dbg::LOG_DEBUG, "Intersecting leaf ", nodeIndex, " with ", node->primitives, " primitives");
 		//   iterate either to a invalid pointer or to the max leaf size
-		assert(node->primitives != nullptr && "Primitive pointer is null in BVH tree");
-		if constexpr (std::is_pointer_v<Element>) {
-			for (int i = 0; i < leafSize && node->primitives[i]; i++) {
-				assert(node->primitives[i] && "Primitive pointer is null in BVH tree");
-				if (node->primitives[i]->intersect(ray, tMin, tMax, intersection)) {
-					tMax   = intersection.t;
-					hasHit = true;
-				}
-			}
-		} else {
-			for (int i = 0; i < leafSize && node->primitives[i]; i++) {
-				assert(node->primitives[i] && "Primitive pointer is null in BVH tree");
-				if (node->primitives[i].intersect(ray, tMin, tMax, intersection)) {
-					tMax   = intersection.t;
-					hasHit = true;
-				}
+		assert(node->primitives != -1ull && "Primitive pointer is null in BVH tree");
+		for (int i = 0; i < leafSize && allPrimitives[node->primitives + i]; i++) {
+			const auto &prim = allPrimitives[node->primitives + i];
+			assert(prim && "Primitive pointer is null in BVH tree");
+			if (f(prim.get()) && prim->intersect(ray, tMin, tMax, intersection)) {
+				tMax					 = intersection.t;
+				hasHit					 = true;
+				intersection.objectIndex = node->primitives + i;
 			}
 		}
 	} else {
@@ -430,9 +432,10 @@ bool BVHTree<Element>::intersect(long unsigned int nodeIndex, const Ray &ray, fl
 }
 
 template <class Element>
-bool BVHTree<Element>::intersect(const Ray &ray, float tMin, float tMax, RayHit &intersection) const {
-	if (fastNodes[0].box.testIntersect(ray)) {
-		return intersect(0, ray, tMin, tMax, intersection);
+bool BVHTree<Element>::intersect(const Ray &ray, float tMin, float tMax, RayHit &intersection,
+								 const IntersectionAccelerator<Element>::Filter &f) const {
+	if (!allPrimitives.empty() && fastNodes[0].box.testIntersect(ray)) {
+		return intersect(0, ray, tMin, tMax, intersection, f);
 	} else return false;
 }
 
@@ -487,15 +490,9 @@ BVHTree<Element>::FastNode BVHTree<Element>::makeFastLeaf(std::unique_ptr<Node> 
 		assert(!allPrimitives.back() && "Last primitive in the leaf must be null");
 		node->primitives.clear();
 
-		const auto &begin = allPrimitives.data() + begin_index;
-		static_assert(!std::is_pointer_v<Element> || sizeof(ElementOwn) == sizeof(const Element *),
-					  "The size of unique_ptr must be the same as a pointer to Intersectable");
-
-		if constexpr (std::is_pointer_v<Element>)
-			return FastNode{node->box, 0, reinterpret_cast<ElementPtr *>(begin), node->splitAxis};
-		else return FastNode{node->box, 0, reinterpret_cast<ElementPtr>(begin), node->splitAxis};
+		return FastNode{node->box, 0, begin_index, node->splitAxis};
 	} else {
-		return FastNode{node->box, 0, nullptr, node->splitAxis};
+		return FastNode{node->box, 0, -1ull, node->splitAxis};
 	}
 }
 

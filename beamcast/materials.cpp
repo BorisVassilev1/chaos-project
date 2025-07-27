@@ -2,8 +2,9 @@
 #include <functional>
 #include <materials.hpp>
 #include <scene.hpp>
+#include "util/utils.hpp"
 
-const float EPS		  = 0.00001f;
+const float EPS		  = 0.001f;
 const int	MAX_DEPTH = 5;
 
 DiffuseMaterial::DiffuseMaterial(const JSONObject &obj, const Scene &scene) : Material(obj, true, true) {
@@ -38,7 +39,10 @@ vec3 cosWeightedHemissphereDir(vec3 normal) {
 	float y = r * sin(a);
 
 	// Convert unit vector in sphere to a cosine weighted vector in hemissphere
-	return normalize(normal + vec3(x, y, z));
+	auto res = normal + vec3(x, y, z);
+	if(res.x > 0.001f || res.y > 0.001f || res.z > 0.001f) res = normalize(res);
+	else res = normal;
+	return res;
 }
 
 vec4 DiffuseMaterial::shade(const RayHit &hit, const Ray &, const Scene &scene) const {
@@ -65,7 +69,7 @@ vec4 DiffuseMaterial::shade(const RayHit &hit, const Ray &, const Scene &scene) 
 	RayHit	 reflectedHit = scene.intersect(reflectedRay);
 	if (reflectedHit.objectIndex != -1u) {
 		reflectedHit.depth	 = hit.depth + 1;
-		const auto	mat_id	 = scene.objects[reflectedHit.objectIndex].getMaterialIndex();
+		const auto	mat_id	 = scene.getObjects()[reflectedHit.objectIndex]->getMaterialIndex();
 		const auto &material = scene.materials[mat_id];
 		scene.fillHitInfo(reflectedHit, reflectedRay, material->smooth);
 		color += material->shade(reflectedHit, reflectedRay, scene)._xyz() * std::max(0.f, dot(hit.normal, randomDir));
@@ -89,7 +93,7 @@ vec4 ReflectiveMaterial::shade(const RayHit &hit, const Ray &ray, const Scene &s
 	RayHit reflectedHit = scene.intersect(reflectedRay);
 	if (reflectedHit.objectIndex != -1u) {
 		reflectedHit.depth	 = hit.depth + 1;
-		const auto	mat_id	 = scene.objects[reflectedHit.objectIndex].getMaterialIndex();
+		const auto	mat_id	 = scene.getObjects()[reflectedHit.objectIndex]->getMaterialIndex();
 		const auto &material = scene.materials[mat_id];
 		scene.fillHitInfo(reflectedHit, reflectedRay, material->smooth);
 		color = material->shade(reflectedHit, reflectedRay, scene).xyz();
@@ -149,7 +153,13 @@ vec4 RefractiveMaterial::shade(const RayHit &hit, const Ray &ray, const Scene &s
 	vec3  normalEPS = normal * EPS;
 
 	Ray reflectedRay(hit.pos + normalEPS, normalize(reflect(ray.direction, normal)));
-	Ray refractedRay(hit.pos - normalEPS, normalize(refract(ray.direction, normal, eta)));
+	Ray refractedRay(hit.pos - normalEPS, refract(ray.direction, normal, eta));
+	if(refractedRay.direction != vec3(0.f)) refractedRay.direction = normalize(refractedRay.direction);
+	if(isnan(refractedRay.direction)) {
+		dbLog(dbg::LOG_ERROR, ray.direction, normal, eta, refract(ray.direction, normal, eta));
+		//assert(false);
+	}
+	//assert(!isnan(refractedRay.direction));
 
 	float f0	  = F0(ior1, ior2);
 	float fresnel = fresnelReflectAmount(ior1, ior2, normal, ray.direction, f0, 1.0f);
@@ -160,7 +170,7 @@ vec4 RefractiveMaterial::shade(const RayHit &hit, const Ray &ray, const Scene &s
 	vec3   reflectionColor = vec3(0);
 	if (reflectedHit.objectIndex != -1u) {
 		reflectedHit.depth = hit.depth + 1;
-		const auto mat_id  = scene.objects[reflectedHit.objectIndex].getMaterialIndex();
+		const auto mat_id  = scene.getObjects()[reflectedHit.objectIndex]->getMaterialIndex();
 		assert(mat_id < scene.materials.size());
 		const auto &material = scene.materials[mat_id];
 		scene.fillHitInfo(reflectedHit, reflectedRay, material->smooth);
@@ -174,7 +184,7 @@ vec4 RefractiveMaterial::shade(const RayHit &hit, const Ray &ray, const Scene &s
 		RayHit refractedHit = scene.intersect(refractedRay);
 		if (refractedHit.objectIndex != -1u) {
 			refractedHit.depth = hit.depth + 1;
-			const auto mat_id  = scene.objects[refractedHit.objectIndex].getMaterialIndex();
+			const auto mat_id  = scene.getObjects()[refractedHit.objectIndex]->getMaterialIndex();
 			assert(mat_id < scene.materials.size());
 			const auto &material = scene.materials[mat_id];
 			scene.fillHitInfo(refractedHit, refractedRay, material->smooth);

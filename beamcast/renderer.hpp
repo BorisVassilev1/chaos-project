@@ -66,8 +66,8 @@ class Renderer {
 		auto		hit = scene.intersect(r);
 		if (hit.t == std::numeric_limits<float>::max()) { return scene.backgroundColor; }
 
-		const auto &object		  = scene.objects[hit.objectIndex];
-		auto		materialIndex = object.getMaterialIndex();
+		const auto &object		  = scene.getObjects()[hit.objectIndex];
+		auto		materialIndex = object->getMaterialIndex();
 		const auto &material	  = scene.materials[materialIndex];
 		scene.fillHitInfo(hit, r, material->smooth);
 

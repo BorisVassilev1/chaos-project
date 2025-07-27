@@ -31,43 +31,38 @@ class Scene {
 	} imageSettings;
 
 	std::vector<PointLight>					   lights;
-	std::vector<Mesh>						   objects;
+	//std::vector<Mesh>						   objects;
 	std::vector<std::unique_ptr<Material>>	   materials;
 	std::vector<std::unique_ptr<Texture>>	   textures;
 	std::unordered_map<std::string, Texture *> textureMap;
 
 	std::filesystem::path scenePath;
 
+	using MeshBVH = ygl::bvh::BVHTree<Mesh*>;
+	MeshBVH bvh;
+
+	const auto &getObjects() const { return bvh.getObjects(); }
+
 	auto intersect(const Ray &r) const {
 		RayHit hit;
-		for (const auto &[i, object] : std::views::enumerate(objects)) {
-			const auto &material = materials[object.getMaterialIndex()];
-			if (r.type == Ray::Type::Shadow && !material->castsShadows) continue;
-			auto hitnew = object.intersect(r);
-			if (hitnew.t > 0.0001f && hitnew.t < hit.t) {
-				if (material->doubleSided || dot(hitnew.normal, r.direction) < 0.0f) {
-					hit				= hitnew;
-					hit.objectIndex = i;
-				}
-			}
-		}
+		bvh.intersect(r, 0.0001f, FLT_MAX, hit);
 		return hit;
 	}
 
 	auto fillHitInfo(RayHit &hit, const Ray &r, bool smooth = true) const {
-		objects[hit.objectIndex].fillHitInfo(hit, r, smooth);
+		bvh.getObjects()[hit.objectIndex]->fillHitInfo(hit, r, smooth);
 	}
 
 	Scene()							= default;
-	Scene(const Scene &)			= default;
-	Scene(Scene &&)					= default;
-	Scene &operator=(const Scene &) = default;
-	Scene &operator=(Scene &&)		= default;
+	Scene(const Scene &)			= delete;
+	Scene(Scene &&)					= delete;
+	Scene &operator=(const Scene &) = delete;
+	Scene &operator=(Scene &&)		= delete;
 
 	Scene(const std::string_view &filename);
 
 	void clear() {
-		objects.clear();
+		bvh.clear();
 		lights.clear();
 		camera = Camera{};
 	}
@@ -76,19 +71,19 @@ class Scene {
 
 	void serializeOBJ(std::ostream &os) const {
 		std::size_t offset = 0;
-		for (const auto &object : objects) {
-			for (const auto &vertex : object.getVertices()) {
+		for (const auto &object : bvh.getObjects()) {
+			for (const auto &vertex : object->getVertices()) {
 				os << "v " << vertex.x << " " << vertex.y << " " << vertex.z << "\n";
 			}
-			for (const auto &normal : object.getNormals()) {
+			for (const auto &normal : object->getNormals()) {
 				os << "vn " << normal.x << " " << normal.y << " " << normal.z << "\n";
 			}
-			for (const auto &index : object.getIndices()) {
+			for (const auto &index : object->getIndices()) {
 				os << "f " << index.x + 1 + offset << "//" << index.x + 1 + offset << " " << index.y + 1 + offset
 				   << "//" << index.y + 1 + offset << " " << index.z + 1 + offset << "//" << index.z + 1 + offset
 				   << "\n";
 			}
-			offset += object.getVertices().size();
+			offset += object->getVertices().size();
 		}
 	}
 

@@ -67,6 +67,14 @@ inline constexpr auto operator*(const vec<T, N>& v1, const vec<T, N>& v2) {
 }
 
 template <class T, std::size_t N>
+inline constexpr auto mult_safe(const vec<T, N> &v1, const vec<T, N> &v2) {
+	return apply2(v1, v2, [](const T &x, const T &y) {
+		if(std::isinf(x) || std::isinf(y)) return std::numeric_limits<T>::infinity();
+		else return x * y;
+	});
+}
+
+template <class T, std::size_t N>
 inline constexpr auto operator/(const vec<T, N>& v1, const vec<T, N>& v2) {
 	return apply2(v1, v2, std::divides<T>{});
 }
@@ -236,6 +244,13 @@ inline constexpr auto max(const vec<T, N>& v1, const vec<T, N>& v2) {
 template <class T, std::size_t N>
 inline constexpr auto min(const vec<T, N>& v1, const vec<T, N>& v2) {
 	return apply2(v1, v2, [](const T& a, const T& b) { return std::min(a, b); });
+}
+
+template <class T, std::size_t N>
+inline constexpr bool isnan(const vec<T, N> &v) {
+	return [&]<std::size_t... I>(std::index_sequence<I...>) {
+		return (std::isnan(v[I]) || ...);
+	}(std::make_index_sequence<N>{});
 }
 
 #define VEC_SWIZZLE_2(name, a, b)                                                                                 \
