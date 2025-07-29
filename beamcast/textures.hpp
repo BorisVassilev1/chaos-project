@@ -78,8 +78,6 @@ class ImageTexture : public Texture {
    public:
 	Image<RGB32F> image;
 
-	// ImageTexture(const Image<RGB32F> &image) : image(image) {}
-
 	ImageTexture(const JSONObject &obj, const std::filesystem::path &scenePath) {
 		const auto &filename	= obj["file_path"].as<JSONString>();
 		auto		sceneFolder = scenePath.parent_path();

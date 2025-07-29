@@ -5,6 +5,9 @@
 ///
 /// COPY PASTA FROM https://github.com/BorisVassilev1/urban-spork
 /// with a lot of edits, of course
+/// AGAIN COPY PASTA FROM https://github.com/BorisVassilev1/yoghurtgl/blob/master/include/bvh.h
+/// with again more edits, better memory management and features
+/// sadly, not faster
 
 #include <cstddef>
 #include <cstring>
@@ -49,9 +52,6 @@ struct IntersectionAccelerator {
 
 	virtual ~IntersectionAccelerator() = default;
 };
-
-template <class Element>
-using AcceleratorPtr = std::unique_ptr<IntersectionAccelerator<Element>>;
 
 template <class Element>
 class FakePointer {
@@ -115,16 +115,6 @@ class BVHTree : public IntersectionAccelerator<Element> {
 			// 0th node will always be the root so no node points to it as its right child
 			return right == 0;
 		}
-	};
-
-	struct alignas(16) GPUNode {
-		vec3 min;
-		uint parent;
-		vec3 max;
-		uint right;
-		uint primOffset;
-		uint primCount;
-		bool isLeaf() { return right == 0; }
 	};
 
 	// all primitives added

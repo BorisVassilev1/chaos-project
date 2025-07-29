@@ -9,6 +9,9 @@ scenes/*
 *.png
 *.obj
 .cache/
+*/*.blend*
+*.mp4
 
 *.json
 *.zip
+

@@ -4,7 +4,8 @@
 #include <cstdint>
 #include <cstring>
 #include <data.hpp>
-
+// copy pasta (with edits)
+// https://github.com/BorisVassilev1/yoghurtgl/blob/master/include/bvh.h
 struct Intersectable {
 	/// @brief Called after scene is fully created and before rendering starts
 	///	       Used to build acceleration structures

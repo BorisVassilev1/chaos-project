@@ -151,7 +151,6 @@ class MeshObject : public Primitive {
 	mat4		 transform;
 	mat4		inverseTransform;
 	const Scene* scene;
-	// const Material& material;
 	std::size_t materialIndex = 0;
 	bool isIdentity = true;
 

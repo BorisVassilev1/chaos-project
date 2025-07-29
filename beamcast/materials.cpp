@@ -1,5 +1,4 @@
 
-#include <functional>
 #include <materials.hpp>
 #include <scene.hpp>
 #include <util/utils.hpp>
@@ -60,12 +59,6 @@ vec4 DiffuseMaterial::shade(const RayHit &hit, const Ray &, const Scene &scene, 
 		color += light.color * light.intensity * std::max(0.f, dot(hit.normal, lightDir)) / (4.f * M_PIf * distanceSq);
 	}
 
-	//auto terminationP = (1.f - max(color)) / 2.f;
-	//auto diceroll = randomFloat(seed);
-	//if( diceroll < terminationP ) {
-	//	return vec4(color, 1.0f); // russian roulette
-	//}
-
 	vec3   randomDir = cosWeightedHemissphereDir(hit.normal, seed);
 	Ray	   reflectedRay(hit.pos + randomDir * EPS, randomDir);
 	RayHit reflectedHit = scene.intersect(reflectedRay);
@@ -86,7 +79,6 @@ vec4 DiffuseMaterial::shade(const RayHit &hit, const Ray &, const Scene &scene, 
 		color *= this->albedoColor;
 	}
 
-	//color *= 1.f / (1.f - terminationP); // russian roulette probability
 	return vec4(color, 1.0f);
 }
 
@@ -132,7 +124,6 @@ static inline float fresnelReflectAmount(float n1, float n2, vec3 normal, vec3 i
 	}
 	float x	  = 1.0 - cosX;
 	float ret = r0 + (1.0 - r0) * x * x * x * x * x;
-	// ret = clamp(ret, 0.0, 1.0);
 
 	// adjust reflect multiplier for object reflectivity
 	return f0 * (1.f - ret) + f90 * ret;

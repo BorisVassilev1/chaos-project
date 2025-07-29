@@ -32,6 +32,7 @@ struct RayHit {
 
 /**
  * struct BBox - Axis Aligned Bouding Box
+ * copy pasta from here: https://github.com/BorisVassilev1/yoghurtgl/blob/master/include/bvh.h
  */
 struct AABB {
 	vec3 min = vec3(FLT_MAX, FLT_MAX, FLT_MAX);

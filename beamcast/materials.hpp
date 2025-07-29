@@ -1,7 +1,7 @@
 #pragma once
 
 #include <data.hpp>
-#include "textures.hpp"
+#include <textures.hpp>
 
 class Scene;
 

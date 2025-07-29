@@ -6,6 +6,7 @@
 #include <util/utils.hpp>
 #include <chrono>
 
+/// simple progress logger class
 class PercentLogger {
 	std::string			name;
 	std::size_t			total;
@@ -35,6 +36,8 @@ class PercentLogger {
 	}
 };
 
+
+/// very simple timer class
 class Timer {
 	std::chrono::high_resolution_clock::time_point start;
 

@@ -1,11 +1,10 @@
 #include <iostream>
+#include <fenv.h>
 
 #include <img/export.hpp>
-
 #include <camera.hpp>
 #include <scene.hpp>
-#include "renderer.hpp"
-#include <fenv.h>
+#include <renderer.hpp>
 
 /*
 
@@ -86,5 +85,5 @@ int main(int argc, char** argv) {
 		rend.saveImage(std::format("output_{:0>3}.png", i));
 	}
 
-	system("fish -c 'feh output_0.png'");
+	system("fish -c 'feh output_000.png'");
 }
