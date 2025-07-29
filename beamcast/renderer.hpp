@@ -11,12 +11,13 @@ class Renderer {
 	OneShotThreadPool pool;
 	Image<RGBA32F>	  image;
 	float			  resolution_scale = 1.0f;
+	int spp;
 
 	Scene &scene;
 
    public:
-	Renderer(Scene &scene, float resolution_scale = 1.0f, int threadCount = std::thread::hardware_concurrency())
-		: pool(threadCount), resolution_scale(resolution_scale), scene(scene) {
+	Renderer(Scene &scene, float resolution_scale = 1.0f, int threadCount = std::thread::hardware_concurrency(), int spp = 1)
+		: pool(threadCount), resolution_scale(resolution_scale), spp(spp), scene(scene) {
 		setResolutionScale(resolution_scale);
 	}
 
@@ -31,16 +32,17 @@ class Renderer {
 		auto		  I = segmentImage(image.resolution(), ivec2(32, 32));
 		PercentLogger logger("Rendering", I.size());
 		scene.camera.setResolution(image.resolution());
+		pool.reset();
 
 		auto f = [&](const std::any &job) {
 			auto segment = std::any_cast<std::pair<ivec2, ivec2>>(job);
 			uint32_t seed = rand();
 			for (const auto &coord : iter2D(segment.first, segment.second)) {
 				RGBA32F color = 0;
-				for (int i = 0; i < 8; ++i) {
+				for (int i = 0; i < spp; ++i) {
 					color += shadePixel(coord, seed);
 				}
-				color /= 8.f;	 // Average over 10 samples
+				color /= (float)spp;	 // Average over 10 samples
 				color					= clamp(color, 0.f, 1.f);
 				image(coord.x, coord.y) = color;
 			}

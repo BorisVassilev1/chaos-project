@@ -23,18 +23,27 @@ textures = set(n.image for n in image_textures if n.image)
 print("fov: ",camera.data.angle)
 print("matrix: ", camera.matrix_world)
 
+frame_current = scene.frame_current
+cameraPositions = [];
+for f in range(scene.frame_start, scene.frame_end + 1):
+    scene.frame_set(f)
+    cameraPositions.append(camera.matrix_world.copy())
+scene.frame_set(frame_current)
+print("frames: ", len(cameraPositions))
+
 with open("export.json", "w") as f:
     f.write("{\n")
-    f.write("""  
-	"settings": {
-		"background_color": [
+    f.write(f"""  
+	"settings": {{
+        "background_color": [
 			0.6, 0.6, 0.6
 		],		
-		"image_settings": {
+		"image_settings": {{
 			"width": 1920,
 			"height": 1080
-		}
-	},\n""")
+		}},
+        "frames": {len(cameraPositions)}
+	}},\n""")
     f.write('  "camera": {\n')
     f.write(f'    "fov": {camera.data.angle * 180 / math.pi},\n')
     f.write('    "matrix": [\n')
@@ -46,7 +55,20 @@ with open("export.json", "w") as f:
     f.write('    ],\n')
     f.write('    "position": [\n')
     f.write(f'      {camera.location.x}, {camera.location.y}, {camera.location.z}\n')
-    f.write('  ]\n},\n')
+    f.write('  ],\n')
+    f.write('  "animation": [')
+    for i, mat in enumerate(cameraPositions):
+        f.write(f"""[
+      {mat[0][0]}, {mat[0][1]}, {mat[0][2]}, {mat[0][3]},
+      {mat[1][0]}, {mat[1][1]}, {mat[1][2]}, {mat[1][3]},
+      {mat[2][0]}, {mat[2][1]}, {mat[2][2]}, {mat[2][3]},
+      {mat[3][0]}, {mat[3][1]}, {mat[3][2]}, {mat[3][3]}
+            ]""")
+        if i != len(cameraPositions)-1:
+            f.write(',');
+        f.write('\n')
+    f.write(']\n')
+    f.write('},\n')
     f.write('  "materials": [\n')
     for m in materials:
         print("Material: ", m.name)

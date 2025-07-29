@@ -65,6 +65,14 @@ class OneShotThreadPool {
 
 	~OneShotThreadPool() { stop(); }
 
+	void reset() {
+		running = true;
+		has_work = false;
+		jobs_taken = 0;
+		jobs_done = 0;
+		job_queue.clear();
+	}
+
 	void addJob(std::any &&job, std::function<void(const std::any &)> &&func) {
 		job_queue.emplace_back(Job{std::move(job), std::move(func)});
 	}

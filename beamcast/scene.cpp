@@ -22,6 +22,9 @@ Scene::Scene(const std::string_view &filename) {
 		this->backgroundColor = vec4{backgroundJSON[0].as<JSONNumber>(), backgroundJSON[1].as<JSONNumber>(),
 									 backgroundJSON[2].as<JSONNumber>(),
 									 backgroundJSON.size() > 3 ? (float)backgroundJSON[3].as<JSONNumber>() : 1.0f};
+		if(settings.find("frames") != settings.end()) {
+			this->frameCount = settings["frames"].as<JSONNumber>();
+		}
 
 		auto &cameraJSON = jo["camera"].as<JSONObject>();
 		this->camera	 = Camera(cameraJSON);

@@ -43,6 +43,8 @@ class Scene {
 	using MeshBVH = ygl::bvh::BVHTree<MeshObject*>;
 	MeshBVH bvh;
 
+	int frameCount = 1;
+
 	const auto &getObjects() const { return bvh.getObjects(); }
 
 	auto intersect(const Ray &r) const {
@@ -93,5 +95,9 @@ class Scene {
 		auto it = textureMap.find(std::string(name));	  // TODO: use std::string_view for better performance
 		if (it != textureMap.end()) { return it->second; }
 		throw std::runtime_error(std::string("Texture not found: ") + std::string(name));
+	}
+
+	void setFrame(int frame) {
+		camera.setFrame(frame);
 	}
 };
