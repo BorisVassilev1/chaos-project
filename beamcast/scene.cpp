@@ -1,4 +1,6 @@
 #include <scene.hpp>
+#include "json/json.hpp"
+#include "mesh.hpp"
 
 Scene::Scene(const std::string_view &filename) {
 	dbLog(dbg::LOG_DEBUG, "Loading scene from file: ", filename);
@@ -24,10 +26,24 @@ Scene::Scene(const std::string_view &filename) {
 		auto &cameraJSON = jo["camera"].as<JSONObject>();
 		this->camera	 = Camera(cameraJSON);
 
+		if(jo.find("meshes") != jo.end()) {
+			const auto &meshesJSON = jo["meshes"].as<JSONArray>();
+			for(const auto &j : meshesJSON) {
+				auto &obj = j->as<JSONObject>();
+				meshes.emplace_back(obj);
+			}
+		}
+
 		auto &objectsJSON = jo["objects"].as<JSONArray>();
 		for (const auto &j : objectsJSON) {
-			auto &obj = j->as<JSONObject>();
-			bvh.addPrimitive(new Mesh(*this, obj));
+			const auto &obj = j->as<JSONObject>();
+			if(obj.find("ref") == obj.end()) {
+				meshes.emplace_back(obj);
+				bvh.addPrimitive(new MeshObject(*this, meshes.size()-1, obj));
+			} else {
+				std::size_t meshIndex = obj["ref"].as<JSONNumber>();
+				bvh.addPrimitive(new MeshObject(*this, meshIndex, obj));
+			}
 		}
 
 		auto &lightsJSON = jo["lights"].as<JSONArray>();

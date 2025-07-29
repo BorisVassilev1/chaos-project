@@ -8,12 +8,13 @@
 struct Ray {
 	vec3 origin;
 	vec3 direction;
+	vec3 attenuation;
 	enum Type {
 		Primary,
 		Shadow,
 	} type = Type::Primary;
 
-	Ray(const vec3& o, const vec3& d, Type t = Primary) : origin(o), direction(d), type(t) {}
+	Ray(const vec3& o, const vec3& d, Type t = Primary, const vec3 &attenuation = 1.0f) : origin(o), direction(d), attenuation(attenuation), type(t) {}
 
 	inline constexpr auto at(float t) const { return origin + direction * t; }
 };

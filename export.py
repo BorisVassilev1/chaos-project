@@ -6,6 +6,7 @@ import math
 scene = bpy.context.scene
 
 objects = set(o for o in scene.objects if o.type == 'MESH')
+meshes = list(set(o.data for o in objects))
 lights = [o for o in scene.objects if o.type == 'LIGHT']
 
 camera = [o for o in scene.objects if o.type == 'CAMERA'][0]
@@ -27,7 +28,7 @@ with open("export.json", "w") as f:
     f.write("""  
 	"settings": {
 		"background_color": [
-			0, 0.5, 0
+			0.6, 0.6, 0.6
 		],		
 		"image_settings": {
 			"width": 1920,
@@ -46,27 +47,29 @@ with open("export.json", "w") as f:
     f.write('    "position": [\n')
     f.write(f'      {camera.location.x}, {camera.location.y}, {camera.location.z}\n')
     f.write('  ]\n},\n')
-
-    f.write('  "textures": [\n')
-    for i, t in enumerate(textures):
-        f.write('    {\n')
-        f.write(f'      "type": "bitmap",\n')
-        f.write(f'      "name": "{t.name}",\n')
-        f.write(f'      "file_path": "{bpy.path.abspath(t.filepath)}"\n')
-        f.write('    }')
-        if i < len(textures) - 1:
-            f.write(',')
-        f.write('\n')
-
-    f.write('  ],\n')
     f.write('  "materials": [\n')
     for m in materials:
         print("Material: ", m.name)
         f.write('    {\n')
         f.write(f'      "name": "{m.name}",\n')
+
+        if m.name == "CHECKER":
+            print("  Checker material found, using diffuse type.")
+            f.write('      "type": "diffuse",\n')
+            f.write('      "albedo": "Black White Checker"\n')
+            f.write('}')
+            if m != materials[-1]:
+                f.write(',')
+            f.write('\n')
+            continue;
         bsdf = m.node_tree.nodes.get('Principled BSDF')
         if bsdf:
-            f.write('      "type": "diffuse",\n')
+            if m.name == "REFLECTIVE":
+                print("  Reflective material found, using reflective type.")
+                f.write('      "type": "reflective",\n')
+                f.write('      "smooth_shading": true,\n')
+            else:
+                f.write('      "type": "diffuse",\n')
             base_color_node = bsdf.inputs.get('Base Color')
             print("  Base Color Input:")
             if base_color_node:
@@ -83,74 +86,77 @@ with open("export.json", "w") as f:
         if bsdf:
             print("  Glass BSDF found in material.")
             f.write('    "type": "refractive",\n')
-            roughness_node = bsdf.inputs.get('Roughness')
-            if roughness_node:
-                print(f"  Roughness Input: {roughness_node.default_value}")
-                f.write(f'    "roughness": {roughness_node.default_value}\n')
-            else:
-                print("  No Roughness Input found, using default value of 0.0")
-                f.write('    "roughness": 0.0\n')
-        elif m.node_tree.nodes.get('Diffuse BSDF'):
-            print("  Diffuse BSDF found in material.")
-            f.write('    "type": "diffuse",\n')
-        else:
-            print("  No Principled BSDF found in material.")
+            f.write('    "absorbtion" : [\
+				2., 0.4, 0.1\
+			],\n')
+            f.write('    "ior": 1.5,\n')
+            f.write('    "smooth_shading": true\n')
         f.write('    }');
         if m != materials[-1]:
             f.write('    ,')
         f.write('\n')
     f.write('  ],\n')
-        
+
+    f.write('  "textures": [\
+        {\
+			"name": "Black White Checker",\
+			"type": "checker",\
+			"color_A": [ \
+				0, 0, 0 \
+			],\
+			"color_B": [\
+				1, 1, 1\
+			],\
+			"square_size": 0.125		\
+		} \n')
+    if len(textures) > 0: f.write(',')
+    for i, t in enumerate(textures):
+        f.write('    {\n')
+        f.write(f'      "type": "bitmap",\n')
+        f.write(f'      "name": "{t.name}",\n')
+        f.write(f'      "file_path": "{bpy.path.abspath(t.filepath)}"\n')
+        f.write('    }')
+        if i < len(textures) - 1:
+            f.write(',')
+        f.write('\n')
+
+    f.write('  ],\n')
 
             
-    f.write('  "objects": [\n')
-    for l, obj in enumerate(objects):
-        if obj.hide_get():
-            continue
-        mesh = obj.data
-        location = obj.location
-        matrix = obj.matrix_world
-        matrix3 = matrix.to_3x3()
-
+    f.write('  "meshes": [\n')
+    for l, mesh in enumerate(meshes):
         f.write('    {\n')
-        if len(obj.material_slots) > 1: 
-            print("Warning: Object has multiple materials, only the first will be exported.")
-        if obj.material_slots[0].material in materials:
-            f.write(f'    "material_index": {materials.index(obj.material_slots[0].material)},\n')
-
-        print("Exporting object:", obj.name)
-        print("location:", location)
+        print("Exporting mesh:", mesh.name)
         f.write(f'      "name": "{mesh.name}",\n')
         f.write('      "vertices": [\n')
         for i, v in enumerate(mesh.vertices):
-            w = matrix @ v.co
-            f.write(f'        {w.x}, {w.y}, {w.z}')
+            f.write(f'        {v.co.x}, {v.co.y}, {v.co.z}')
             if i < len(mesh.vertices) - 1:
                 f.write(',')
             f.write('\n')
         f.write('      ],\n')
         f.write('      "normals": [\n')
         for i, v in enumerate(mesh.vertices):
-            n = matrix3 @ v.normal
-            f.write(f'        {n.x}, {n.y}, {n.z}')
+            f.write(f'        {v.normal.x}, {v.normal.y}, {v.normal.z}')
             if i < len(mesh.vertices) - 1:
                 f.write(',')
             f.write('\n')
         f.write('      ],\n')
 
-        uvs = [(0.0, 0.0)] * len(mesh.vertices)
-        for lp in mesh.loops:
-            # access uv loop:
-            uv_loop = mesh.uv_layers.active.data[lp.index]
-            uv_coords = uv_loop.uv
-            uvs[lp.vertex_index] = (uv_coords.x, uv_coords.y)
-        f.write('      "uvs": [\n')
-        for i, uv in enumerate(uvs):
-            f.write(f'        {uv[0]}, {uv[1]}, 0')
-            if i < len(uvs) - 1:
-                f.write(',')
-            f.write('\n')
-        f.write('      ],\n')
+        if mesh.uv_layers.active is not None:
+            uvs = [(0.0, 0.0)] * len(mesh.vertices)
+            for lp in mesh.loops:
+                # access uv loop:
+                uv_loop = mesh.uv_layers.active.data[lp.index]
+                uv_coords = uv_loop.uv
+                uvs[lp.vertex_index] = (uv_coords.x, uv_coords.y)
+            f.write('      "uvs": [\n')
+            for i, uv in enumerate(uvs):
+                f.write(f'        {uv[0]}, {uv[1]}, 0')
+                if i < len(uvs) - 1:
+                    f.write(',')
+                f.write('\n')
+            f.write('      ],\n')
 
         f.write('      "triangles": [\n')
         for i, face in enumerate(mesh.polygons):
@@ -161,11 +167,39 @@ with open("export.json", "w") as f:
             f.write('\n')
         f.write('      ]\n')
         f.write('    }')
-        if l < len(objects) - 1:
+        if l < len(meshes) - 1:
             f.write(',\n')
         else:
             f.write('\n')
     f.write('  ],\n')
+
+    f.write('  "objects": [')
+    for l, obj in enumerate(objects):
+        if obj.hide_get():
+            continue
+        f.write('{');
+        mesh = obj.data;
+        matrix = obj.matrix_world
+        location = obj.location
+        if len(obj.material_slots) > 1: 
+            #print("Warning: Object has multiple materials, only the first will be exported.")
+            pass
+        if obj.material_slots[0].material in materials:
+            f.write(f'    "material_index": {materials.index(obj.material_slots[0].material)},\n')
+        f.write(
+f'"ref":{meshes.index(mesh)},"transform":[\
+{matrix[0][0]},{matrix[0][1]},{matrix[0][2]},{matrix[0][3]},\
+{matrix[1][0]},{matrix[1][1]},{matrix[1][2]},{matrix[1][3]},\
+{matrix[2][0]},{matrix[2][1]},{matrix[2][2]},{matrix[2][3]},\
+0,0,0,1\
+]')
+
+        f.write('}')
+        if l < len(objects) - 1:
+            f.write(',')
+        f.write('\n')
+    f.write('  ],\n')
+
     f.write('  "lights": [\n')
     for l, light in enumerate(lights):
         f.write('    {\n')

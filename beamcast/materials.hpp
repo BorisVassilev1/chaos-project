@@ -21,7 +21,7 @@ class Material {
 		}
 	}
 
-	virtual vec4 shade(const RayHit &hit, const Ray &ray, const Scene &scene) const = 0;
+	virtual vec4 shade(const RayHit &hit, const Ray &ray, const Scene &scene, uint32_t &seed) const = 0;
 
 	virtual ~Material() = default;
 };
@@ -34,7 +34,7 @@ class DiffuseMaterial : public Material {
 	DiffuseMaterial(const vec3 &albedo) : albedo(nullptr), albedoColor(albedo) {}
 
 	DiffuseMaterial(const JSONObject &obj, const Scene &scene);
-	vec4 shade(const RayHit &hit, const Ray &, const Scene &scene) const override;
+	vec4 shade(const RayHit &hit, const Ray &, const Scene &scene, uint32_t &seed) const override;
 };
 
 class ReflectiveMaterial : public Material {
@@ -48,15 +48,15 @@ class ReflectiveMaterial : public Material {
 		albedo = vec3{colorJSON[0].as<JSONNumber>(), colorJSON[1].as<JSONNumber>(), colorJSON[2].as<JSONNumber>()};
 	}
 
-	vec4 shade(const RayHit &hit, const Ray &, const Scene &scene) const override;
+	vec4 shade(const RayHit &hit, const Ray &, const Scene &scene, uint32_t &seed) const override;
 };
 
 class RefractiveMaterial : public Material {
    public:
-	vec3  albedo;
+	vec3  absorbtion;
 	float ior;
 
-	RefractiveMaterial(const vec3 &albedo) : albedo(albedo) {}
+	RefractiveMaterial(const vec3 &absorbtion) : absorbtion(absorbtion) {}
 
 	RefractiveMaterial(const JSONObject &obj) : Material(obj, false, false) {
 		if (obj.find("ior") != obj.end()) {
@@ -64,16 +64,16 @@ class RefractiveMaterial : public Material {
 		} else {
 			ior = 1.5f;		// Default IOR for glass
 		}
-		if (obj.find("albedo") != obj.end()) {
-			const auto &colorJSON = obj["albedo"].as<JSONArray>();
-			albedo = vec3{colorJSON[0].as<JSONNumber>(), colorJSON[1].as<JSONNumber>(), colorJSON[2].as<JSONNumber>()};
+		if (obj.find("absorbtion") != obj.end()) {
+			const auto &colorJSON = obj["absorbtion"].as<JSONArray>();
+			absorbtion = vec3{colorJSON[0].as<JSONNumber>(), colorJSON[1].as<JSONNumber>(), colorJSON[2].as<JSONNumber>()};
 		} else {
-			albedo = vec3(1.0f, 1.0f, 1.0f);	 // Default albedo
+			absorbtion = vec3(0.0f, 0.0f, 0.0f);	 // Default absorbtion
 		}
 		doubleSided = true;
 	}
 
-	vec4 shade(const RayHit &hit, const Ray &, const Scene &scene) const override;
+	vec4 shade(const RayHit &hit, const Ray &, const Scene &scene, uint32_t &seed) const override;
 };
 
 class ConstantMaterial : public Material {
@@ -87,5 +87,5 @@ class ConstantMaterial : public Material {
 		albedo = vec3{albedoJSON[0].as<JSONNumber>(), albedoJSON[1].as<JSONNumber>(), albedoJSON[2].as<JSONNumber>()};
 	}
 
-	vec4 shade(const RayHit &, const Ray &, const Scene &) const override { return vec4(albedo, 1.0f); }
+	vec4 shade(const RayHit &, const Ray &, const Scene &, uint32_t &) const override { return vec4(albedo, 1.0f); }
 };

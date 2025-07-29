@@ -5,6 +5,7 @@
 #include <data.hpp>
 #include <scene.hpp>
 #include <log.hpp>
+#include "sample.hpp"
 
 class Renderer {
 	OneShotThreadPool pool;
@@ -33,12 +34,13 @@ class Renderer {
 
 		auto f = [&](const std::any &job) {
 			auto segment = std::any_cast<std::pair<ivec2, ivec2>>(job);
+			uint32_t seed = rand();
 			for (const auto &coord : iter2D(segment.first, segment.second)) {
 				RGBA32F color = 0;
-				for (int i = 0; i < 16; ++i) {
-					color += shadePixel(coord);
+				for (int i = 0; i < 8; ++i) {
+					color += shadePixel(coord, seed);
 				}
-				color /= 16.f;	 // Average over 10 samples
+				color /= 8.f;	 // Average over 10 samples
 				color					= clamp(color, 0.f, 1.f);
 				image(coord.x, coord.y) = color;
 			}
@@ -59,10 +61,10 @@ class Renderer {
 		dbLog(dbg::LOG_INFO, "Image saved to ", filename, "\n");
 	}
 
-	RGBA32F shadePixel(const ivec2 &pixel) const {
+	RGBA32F shadePixel(const ivec2 &pixel, uint32_t &seed) const {
 		const auto &x	= pixel.x;
 		const auto &y	= pixel.y;
-		auto		r	= scene.camera.generate_ray(ivec2(x, y));
+		auto		r	= scene.camera.generate_ray(ivec2(x, y), seed);
 		auto		hit = scene.intersect(r);
 		if (hit.t == std::numeric_limits<float>::max()) { return scene.backgroundColor; }
 
@@ -71,7 +73,9 @@ class Renderer {
 		const auto &material	  = scene.materials[materialIndex];
 		scene.fillHitInfo(hit, r, material->smooth);
 
-		vec4 color = material->shade(hit, r, scene);
+		seed = pcg_hash(x + y * image.resolution().x + seed);
+
+		vec4 color = material->shade(hit, r, scene, seed);
 
 		return color;
 	}

@@ -1,0 +1,11 @@
+Model Information:
+* title:	Shader Ball JL 01
+* source:	https://sketchfab.com/3d-models/shader-ball-jl-01-9ecc1d8ddb5b4059a80d0bd925e3dd3b
+* author:	JLRIN (https://sketchfab.com/JLRIN)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Shader Ball JL 01" (https://sketchfab.com/3d-models/shader-ball-jl-01-9ecc1d8ddb5b4059a80d0bd925e3dd3b) by JLRIN (https://sketchfab.com/JLRIN) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

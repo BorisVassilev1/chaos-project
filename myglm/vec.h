@@ -222,6 +222,11 @@ inline constexpr auto normalize(const vec<T, N>& v) {
 }
 
 template <class T, std::size_t N>
+inline constexpr auto exp(const vec<T, N>& v) {
+	return apply(v, [](const T& val) { return std::exp(val); });
+}
+
+template <class T, std::size_t N>
 inline constexpr auto mix(const vec<T, N>& v1, const vec<T, N>& v2, T t) {
 	return v1 * (T(1.0) - t) + v2 * t;
 }
@@ -250,6 +255,20 @@ template <class T, std::size_t N>
 inline constexpr bool isnan(const vec<T, N> &v) {
 	return [&]<std::size_t... I>(std::index_sequence<I...>) {
 		return (std::isnan(v[I]) || ...);
+	}(std::make_index_sequence<N>{});
+}
+
+template <class T, std::size_t N>
+inline constexpr T sum(const vec<T, N>& v) {
+	return [&]<std::size_t... I>(std::index_sequence<I...>) {
+		return ((v[I]) + ...);
+	}(std::make_index_sequence<N>{});
+}
+
+template <class T, std::size_t N>
+inline constexpr T max(const vec<T, N>& v) {
+	return [&]<std::size_t... I>(std::index_sequence<I...>) {
+		return std::max({v[I]...});
 	}(std::make_index_sequence<N>{});
 }
 

@@ -11,12 +11,9 @@ class Mesh : public Primitive {
 	std::vector<vec3>  triangleNormals;
 	std::vector<ivec3> indices;
 
-	std::size_t materialIndex = 0;
-
 	using BVHType = ygl::bvh::TriangleBVH;
 
-	BVHType		 bvh;
-	const Scene* scene;
+	BVHType bvh;
 
    public:
 	Mesh()						 = delete;
@@ -25,7 +22,7 @@ class Mesh : public Primitive {
 	Mesh& operator=(const Mesh&) = delete;
 	Mesh& operator=(Mesh&&)		 = default;
 
-	Mesh(const Scene& scene, const JSONObject& obj) : scene(&scene) {
+	Mesh(const JSONObject& obj) {
 		auto& verticesJSON = obj["vertices"].as<JSONArray>();
 		this->vertices.reserve(verticesJSON.size() / 3);
 		for (unsigned int i = 0; i < verticesJSON.size(); i += 3) {
@@ -82,12 +79,6 @@ class Mesh : public Primitive {
 		recalculateNormals();
 		bvh.build(BVHType::Purpose::Mesh);
 
-		if (obj.find("material_index") != obj.end()) {
-			materialIndex = obj["material_index"].as<JSONNumber>() + 1;
-		} else {
-			materialIndex = 0;	   // Default to first material if not specified TODO: bad
-		}
-
 		dbLog(dbg::LOG_DEBUG, "Mesh created with ", vertices.size(), " vertices and ", indices.size(), " triangles.");
 	}
 
@@ -116,6 +107,7 @@ class Mesh : public Primitive {
 	}
 
 	bool intersect(const Ray& ray, float tMin, float tMax, RayHit& hit) const override;
+	bool intersect(const Ray& ray, float tMin, float tMax, RayHit& hit, const BVHType::Filter& filter) const;
 
 	inline void fillHitInfo(RayHit& hit, const Ray& ray, bool smooth = true) const {
 		if (hit.triangleIndex == -1u) return;
@@ -139,8 +131,6 @@ class Mesh : public Primitive {
 		}
 	}
 
-	inline constexpr auto getMaterialIndex() const { return materialIndex; }
-
 	inline constexpr auto& getVertices() const { return vertices; }
 	inline constexpr auto& getNormals() const { return normals; }
 	inline constexpr auto& getIndices() const { return indices; }
@@ -153,4 +143,30 @@ class Mesh : public Primitive {
 	void print(std::ostream&) const override {
 		assert(false && "Mesh::print not implemented yet"); /* TODO: implement */
 	}
+};
+
+class MeshObject : public Primitive {
+   public:
+	std::size_t	 meshIndex = 0;
+	mat4		 transform;
+	mat4		inverseTransform;
+	const Scene* scene;
+	// const Material& material;
+	std::size_t materialIndex = 0;
+	bool isIdentity = true;
+
+	MeshObject(const Scene& scene, std::size_t meshIndex, const JSONObject& obj);
+
+	bool intersect(const Ray& ray, float tMin, float tMax, RayHit& intersection) const override;
+
+	inline void writeTo(char*, std::size_t) override { assert(false); }
+
+	inline void print(std::ostream&) const override { assert(false && "Object::print not implemented yet"); }
+
+	void								fillHitInfo(RayHit& hit, const Ray& ray, bool smooth = true) const;
+	const std::vector<vec3>&	getVertices() const;
+	const std::vector<vec3>&	getNormals() const;
+	const std::vector<ivec3>& getIndices() const;
+	const std::vector<vec3>&	getTriangleNormals() const;
+	std::size_t				getMaterialIndex() const;
 };

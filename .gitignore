@@ -12,3 +12,4 @@ scenes/*
 .cache/
 
 *.json
+*.zip

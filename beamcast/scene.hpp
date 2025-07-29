@@ -38,7 +38,9 @@ class Scene {
 
 	std::filesystem::path scenePath;
 
-	using MeshBVH = ygl::bvh::BVHTree<Mesh*>;
+	std::vector<Mesh> meshes;
+
+	using MeshBVH = ygl::bvh::BVHTree<MeshObject*>;
 	MeshBVH bvh;
 
 	const auto &getObjects() const { return bvh.getObjects(); }

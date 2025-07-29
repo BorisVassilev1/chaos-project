@@ -3,6 +3,7 @@
 #include <myglm/myglm.h>
 #include <beamcast/data.hpp>
 #include <json/json.hpp>
+#include <sample.hpp>
 
 template <class T>
 inline constexpr auto toDegrees(T radians) {
@@ -54,9 +55,9 @@ class Camera {
 		aspect =(float)resolution.y / (float)resolution.x;
 	}
 
-	Ray generate_ray(ivec2 pixel) const {
+	Ray generate_ray(ivec2 pixel, uint32_t &seed) const {
 		pixel.y	 = resolution.y - pixel.y - 1;	   // Flip Y coordinate for image coordinates
-		vec2 ndc = vec2(((float)pixel.x + .5f) / (float)resolution.x, ((float)pixel.y + .5f) / (float)resolution.y);
+		vec2 ndc = vec2(((float)pixel.x + randomFloat(seed)) / (float)resolution.x, ((float)pixel.y + randomFloat(seed)) / (float)resolution.y);
 
 		vec2 screen = ndc * 2.0f - 1.0f;
 

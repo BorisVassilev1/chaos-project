@@ -107,8 +107,8 @@ class BVHTree : public IntersectionAccelerator<Element> {
 	// left child will always be next in the array, right child is a index in the nodes array.
 	struct FastNode {
 		AABB		box;
-		std::size_t right;	   // 4e9 is a puny number of primitives => long, not int
-		std::size_t primitives;
+		uint32_t right;	   // 4e9 is a puny number of primitives => long, not int
+		uint32_t primitives;
 
 		char splitAxis;
 		bool isLeaf() const {
@@ -247,9 +247,9 @@ void BVHTree<Element>::build(std::unique_ptr<Node> &node, int depth) {
 	vec3 size = centerBox.max - centerBox.min;
 
 	// find the axis on which the box is largest
-	char  maxAxis	   = -1;
+	uint_fast8_t  maxAxis	   = -1;
 	float maxAxisValue = -FLT_MAX;
-	for (int i = 0; i < 3; ++i) {
+	for (uint_fast8_t i = 0; i < 3; ++i) {
 		if (maxAxisValue < size[i]) {
 			maxAxis		 = i;
 			maxAxisValue = size[i];
@@ -259,23 +259,23 @@ void BVHTree<Element>::build(std::unique_ptr<Node> &node, int depth) {
 
 	// choose splitting algorithm
 	if (node->primitives.size() < PERFECT_SPLIT_THRESHOLD) {
-		unsigned long int size = node->primitives.size();
+		auto size = node->primitives.size();
 		// sorts so that the middle element is in its place, all others are in sorted order relative to it
 		std::nth_element(
-			node->primitives.begin(), node->primitives.begin() + size * 0.5, node->primitives.end(),
+			node->primitives.begin(), node->primitives.begin() + (size / 2), node->primitives.end(),
 			[&](const auto &a, const auto &b) { return a->getCenter()[maxAxis] < b->getCenter()[maxAxis]; });
 		node->left()  = std::make_unique<Node>();
 		node->right() = std::make_unique<Node>();
 		nodeCount += 2;
 
 		// split in half
-		for (unsigned long int i = 0; i < size; ++i) {
+		for (uint i = 0; i < size; ++i) {
 			bool ind = i > (size / 2 - 1);
 			node->primitives[i]->expandBox(node->children[ind]->box);
 			node->children[ind]->primitives.emplace_back(std::move(node->primitives[i]));
 		}
 	} else {
-		long int noSplitSAH = node->primitives.size();
+		auto noSplitSAH = node->primitives.size();
 
 		// try evenly distributed splits with SAH
 		float bestSAH = FLT_MAX, bestRatio = -1;
@@ -490,9 +490,9 @@ BVHTree<Element>::FastNode BVHTree<Element>::makeFastLeaf(std::unique_ptr<Node> 
 		assert(!allPrimitives.back() && "Last primitive in the leaf must be null");
 		node->primitives.clear();
 
-		return FastNode{node->box, 0, begin_index, node->splitAxis};
+		return FastNode{node->box, 0, (uint32_t)begin_index, node->splitAxis};
 	} else {
-		return FastNode{node->box, 0, -1ull, node->splitAxis};
+		return FastNode{node->box, 0, -1u, node->splitAxis};
 	}
 }
 

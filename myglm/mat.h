@@ -6,7 +6,7 @@
 
 template <class T, std::size_t N, std::size_t M>
 class mat : public vec<vec<T, M>, N> {
-	using Base = vec<vec<T, M>, N>;
+using Base = vec<vec<T, M>, N>;
 public:
 	using Base::Base;
 };
@@ -95,4 +95,5 @@ inline constexpr auto identity() {
 	}(std::make_index_sequence<N>{});
 	return result;
 }
+
 

@@ -2,10 +2,11 @@
 #include <functional>
 #include <materials.hpp>
 #include <scene.hpp>
-#include "util/utils.hpp"
+#include <util/utils.hpp>
+#include <sample.hpp>
 
 const float EPS		  = 0.001f;
-const int	MAX_DEPTH = 5;
+const int	MAX_DEPTH = 3;
 
 DiffuseMaterial::DiffuseMaterial(const JSONObject &obj, const Scene &scene) : Material(obj, true, true) {
 	const auto &albedoJSON = obj["albedo"];
@@ -25,29 +26,24 @@ DiffuseMaterial::DiffuseMaterial(const JSONObject &obj, const Scene &scene) : Ma
 	doubleSided = false;
 }
 
-static inline float randomFloat() {
-	static uint32_t seed = 0x12345678;	// Fixed seed for reproduc
-	seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-	return float(seed) / float(0x7fffffff);
-}
-
-vec3 cosWeightedHemissphereDir(vec3 normal) {
-	float z = randomFloat() * 2.0 - 1.0;
-	float a = randomFloat() * 2.0 * M_PI;
+vec3 cosWeightedHemissphereDir(vec3 normal, uint32_t &seed) {
+	float z = randomFloat(seed) * 2.0 - 1.0;
+	float a = randomFloat(seed) * 2.0 * M_PI;
 	float r = sqrt(1.0 - z * z);
 	float x = r * cos(a);
 	float y = r * sin(a);
 
 	// Convert unit vector in sphere to a cosine weighted vector in hemissphere
 	auto res = normal + vec3(x, y, z);
-	if(res.x > 0.001f || res.y > 0.001f || res.z > 0.001f) res = normalize(res);
+	if (res.x > 0.001f || res.y > 0.001f || res.z > 0.001f) res = normalize(res);
 	else res = normal;
 	return res;
 }
 
-vec4 DiffuseMaterial::shade(const RayHit &hit, const Ray &, const Scene &scene) const {
+vec4 DiffuseMaterial::shade(const RayHit &hit, const Ray &, const Scene &scene, uint32_t &seed) const {
 	if (hit.depth >= MAX_DEPTH) { return scene.backgroundColor; }
 	vec3 color = 0;
+	//return vec4(hit.pos, 1.f);
 	for (const auto &light : scene.lights) {
 		vec3  lightDir	 = light.position - hit.pos;
 		float distanceSq = lengthSquared(lightDir);
@@ -64,15 +60,22 @@ vec4 DiffuseMaterial::shade(const RayHit &hit, const Ray &, const Scene &scene) 
 		color += light.color * light.intensity * std::max(0.f, dot(hit.normal, lightDir)) / (4.f * M_PIf * distanceSq);
 	}
 
-	vec3	 randomDir = cosWeightedHemissphereDir(hit.normal);
-	Ray		 reflectedRay(hit.pos + randomDir * EPS, randomDir);
-	RayHit	 reflectedHit = scene.intersect(reflectedRay);
+	//auto terminationP = (1.f - max(color)) / 2.f;
+	//auto diceroll = randomFloat(seed);
+	//if( diceroll < terminationP ) {
+	//	return vec4(color, 1.0f); // russian roulette
+	//}
+
+	vec3   randomDir = cosWeightedHemissphereDir(hit.normal, seed);
+	Ray	   reflectedRay(hit.pos + randomDir * EPS, randomDir);
+	RayHit reflectedHit = scene.intersect(reflectedRay);
 	if (reflectedHit.objectIndex != -1u) {
 		reflectedHit.depth	 = hit.depth + 1;
 		const auto	mat_id	 = scene.getObjects()[reflectedHit.objectIndex]->getMaterialIndex();
 		const auto &material = scene.materials[mat_id];
 		scene.fillHitInfo(reflectedHit, reflectedRay, material->smooth);
-		color += material->shade(reflectedHit, reflectedRay, scene)._xyz() * std::max(0.f, dot(hit.normal, randomDir));
+		color +=
+			material->shade(reflectedHit, reflectedRay, scene, seed)._xyz() * std::max(0.f, dot(hit.normal, randomDir));
 	} else {
 		color += scene.backgroundColor.xyz();
 	}
@@ -82,10 +85,12 @@ vec4 DiffuseMaterial::shade(const RayHit &hit, const Ray &, const Scene &scene) 
 	} else {
 		color *= this->albedoColor;
 	}
+
+	//color *= 1.f / (1.f - terminationP); // russian roulette probability
 	return vec4(color, 1.0f);
 }
 
-vec4 ReflectiveMaterial::shade(const RayHit &hit, const Ray &ray, const Scene &scene) const {
+vec4 ReflectiveMaterial::shade(const RayHit &hit, const Ray &ray, const Scene &scene, uint32_t &seed) const {
 	if (hit.depth >= MAX_DEPTH) { return scene.backgroundColor; }
 	vec3   color		= 0;
 	vec3   reflectedDir = normalize(reflect(ray.direction, hit.normal));
@@ -96,7 +101,7 @@ vec4 ReflectiveMaterial::shade(const RayHit &hit, const Ray &ray, const Scene &s
 		const auto	mat_id	 = scene.getObjects()[reflectedHit.objectIndex]->getMaterialIndex();
 		const auto &material = scene.materials[mat_id];
 		scene.fillHitInfo(reflectedHit, reflectedRay, material->smooth);
-		color = material->shade(reflectedHit, reflectedRay, scene).xyz();
+		color = material->shade(reflectedHit, reflectedRay, scene, seed).xyz();
 	} else {
 		color = scene.backgroundColor.xyz();
 	}
@@ -133,7 +138,7 @@ static inline float fresnelReflectAmount(float n1, float n2, vec3 normal, vec3 i
 	return f0 * (1.f - ret) + f90 * ret;
 }
 
-vec4 RefractiveMaterial::shade(const RayHit &hit, const Ray &ray, const Scene &scene) const {
+vec4 RefractiveMaterial::shade(const RayHit &hit, const Ray &ray, const Scene &scene, uint32_t &seed) const {
 	if (hit.depth >= MAX_DEPTH) { return scene.backgroundColor; }
 	vec3  color		 = 0;
 	float dotNormal	 = dot(hit.normal, ray.direction);
@@ -154,33 +159,31 @@ vec4 RefractiveMaterial::shade(const RayHit &hit, const Ray &ray, const Scene &s
 
 	Ray reflectedRay(hit.pos + normalEPS, normalize(reflect(ray.direction, normal)));
 	Ray refractedRay(hit.pos - normalEPS, refract(ray.direction, normal, eta));
-	if(refractedRay.direction != vec3(0.f)) refractedRay.direction = normalize(refractedRay.direction);
-	if(isnan(refractedRay.direction)) {
+	if (refractedRay.direction != vec3(0.f)) refractedRay.direction = normalize(refractedRay.direction);
+	if (isnan(refractedRay.direction)) {
 		dbLog(dbg::LOG_ERROR, ray.direction, normal, eta, refract(ray.direction, normal, eta));
-		//assert(false);
+		// assert(false);
 	}
-	//assert(!isnan(refractedRay.direction));
 
 	float f0	  = F0(ior1, ior2);
 	float fresnel = fresnelReflectAmount(ior1, ior2, normal, ray.direction, f0, 1.0f);
-	// float fresnel = 0.5f * std::pow(1.0f + dot(ray.direction, normal), 5.0f);
-	// return vec4(fresnel, fresnel, fresnel, 1.0f);
 
-	RayHit reflectedHit	   = scene.intersect(reflectedRay);
-	vec3   reflectionColor = vec3(0);
-	if (reflectedHit.objectIndex != -1u) {
-		reflectedHit.depth = hit.depth + 1;
-		const auto mat_id  = scene.getObjects()[reflectedHit.objectIndex]->getMaterialIndex();
-		assert(mat_id < scene.materials.size());
-		const auto &material = scene.materials[mat_id];
-		scene.fillHitInfo(reflectedHit, reflectedRay, material->smooth);
-		reflectionColor = material->shade(reflectedHit, reflectedRay, scene)._xyz();
+	float randomSelect = randomFloat(seed);
+	
+	// importance sampling the fresnel term
+	if (randomSelect < fresnel) {
+		RayHit reflectedHit = scene.intersect(reflectedRay);
+		if (reflectedHit.objectIndex != -1u) {
+			reflectedHit.depth = hit.depth + 1;
+			const auto mat_id  = scene.getObjects()[reflectedHit.objectIndex]->getMaterialIndex();
+			assert(mat_id < scene.materials.size());
+			const auto &material = scene.materials[mat_id];
+			scene.fillHitInfo(reflectedHit, reflectedRay, material->smooth);
+			color = material->shade(reflectedHit, reflectedRay, scene, seed)._xyz();
+		} else {
+			color = scene.backgroundColor.xyz();
+		}
 	} else {
-		reflectionColor = scene.backgroundColor.xyz();
-	}
-
-	vec3 refractionColor = vec3(0);
-	if (refractedRay.direction != vec3(0)) [[likely]] {
 		RayHit refractedHit = scene.intersect(refractedRay);
 		if (refractedHit.objectIndex != -1u) {
 			refractedHit.depth = hit.depth + 1;
@@ -188,14 +191,14 @@ vec4 RefractiveMaterial::shade(const RayHit &hit, const Ray &ray, const Scene &s
 			assert(mat_id < scene.materials.size());
 			const auto &material = scene.materials[mat_id];
 			scene.fillHitInfo(refractedHit, refractedRay, material->smooth);
-			refractionColor = material->shade(refractedHit, refractedRay, scene)._xyz();
+			color = material->shade(refractedHit, refractedRay, scene, seed)._xyz();
 		} else {
-			refractionColor = scene.backgroundColor.xyz();
+			color = scene.backgroundColor.xyz();
 		}
-		color = mix(reflectionColor, refractionColor, 1.0f - fresnel);
-	} else {
-		color = reflectionColor;
+	}
+	if(!isEntering) {
+		color *= exp(this->absorbtion * -hit.t);	 // Attenuate color for exiting the object
 	}
 
-	return vec4(color * this->albedo, 1.0f);
+	return vec4(color, 1.0f);
 }
