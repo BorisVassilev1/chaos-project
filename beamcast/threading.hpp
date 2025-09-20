@@ -36,6 +36,7 @@ class OneShotThreadPool {
 
    public:
 	OneShotThreadPool(uint num_threads = std::thread::hardware_concurrency()) : num_threads(num_threads) {
+		dbLog(dbg::LOG_INFO, "Starting thread pool with ", num_threads, " threads");
 		threads.reserve(num_threads);
 
 		auto worker = [this]() {

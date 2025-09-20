@@ -17,7 +17,8 @@ target_compile_options(main PRIVATE
 	-O3 
 	-mavx -mavx2 -march=skylake 
 	-g
-	-fsanitize=address
+	-stdlib=libstdc++
+	#-fsanitize=address
 	#-Rpass=loop-vectorize
 	#-Rpass-missed=loop-vectorize
 	#-Rpass-analysis=loop-vectorize
@@ -26,6 +27,6 @@ target_link_options(main PRIVATE
 	#-ltbb -ltbbmalloc -ltbbmalloc_proxy -pthread 
 	-g -O3
 	-mavx -mavx2 -march=native
-	-fsanitize=address
+	#-fsanitize=address
 )
-
+set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -static")

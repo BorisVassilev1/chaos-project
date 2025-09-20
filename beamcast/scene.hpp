@@ -40,7 +40,7 @@ class Scene {
 
 	std::vector<Mesh> meshes;
 
-	using MeshBVH = ygl::bvh::BVHTree<MeshObject*>;
+	using MeshBVH = ygl::bvh::BVHTree<MeshObject*, ygl::bvh::Instances>;
 	MeshBVH bvh;
 
 	int frameCount = 1;

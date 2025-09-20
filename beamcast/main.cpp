@@ -85,5 +85,5 @@ int main(int argc, char** argv) {
 		rend.saveImage(std::format("output_{:0>3}.png", i));
 	}
 
-	system("fish -c 'feh output_000.png'");
+	//system("fish -c 'feh output_000.png'");
 }

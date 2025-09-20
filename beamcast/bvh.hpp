@@ -10,7 +10,6 @@
 /// sadly, not faster
 
 #include <cstddef>
-#include <cstring>
 #include <vector>
 #include <memory>
 #include <float.h>
@@ -28,11 +27,23 @@ namespace ygl {
  */
 namespace bvh {
 
+struct Purpose {
+	float SAH_TRAVERSAL_COST	  = 0.125f;		///< cost of traversing a Node
+	int	  SAH_TRY_COUNT			  = 5;			///< number of splits to try when using SAH
+	int	  MAX_DEPTH				  = 50;			///< maximum depth of the tree
+	int	  MIN_PRIMITIVES_COUNT	  = 6;			///< minimum number of primitives in a leaf
+	int	  PERFECT_SPLIT_THRESHOLD = 20;			///< when a node has
+};
+static constexpr Purpose Generic, Mesh,
+	Instances{.SAH_TRAVERSAL_COST	   = 0.125f,
+			  .SAH_TRY_COUNT		   = 10,
+			  .MAX_DEPTH			   = 50,
+			  .MIN_PRIMITIVES_COUNT	   = 6,
+			  .PERFECT_SPLIT_THRESHOLD = 20};
+
 /// Interface for an acceleration structure for any intersectable primitives
 template <class Element>
 struct IntersectionAccelerator {
-	enum class Purpose { Generic, Mesh, Instances };
-
 	/// @brief Add the primitive to the accelerated list
 	/// @param prim - non owning pointer
 	virtual void addPrimitive(const Element el) = 0;
@@ -42,7 +53,7 @@ struct IntersectionAccelerator {
 
 	/// @brief Build all the internal data for the accelerator
 	///	@param purpose - the purpose of the tree, implementation can use it as hint for internal parameters
-	virtual void build(Purpose purpose = Purpose::Generic) = 0;
+	virtual void build() = 0;
 
 	/// @brief Check if the accelerator is built
 	virtual bool isBuilt() const = 0;
@@ -79,7 +90,7 @@ class FakePointer {
  * @note some comments may be misleading since now this structure is used to do stuff on the GPU, the CPU intersection
  * has been removed
  */
-template <class Element>
+template <class Element, Purpose p>
 class BVHTree : public IntersectionAccelerator<Element> {
 	using ElementOwn = std::conditional_t<std::is_pointer_v<Element>,
 										  std::unique_ptr<std::remove_pointer_t<const Element>>, FakePointer<Element>>;
@@ -106,8 +117,8 @@ class BVHTree : public IntersectionAccelerator<Element> {
 	// faster intersection tree node;
 	// left child will always be next in the array, right child is a index in the nodes array.
 	struct FastNode {
-		AABB		box;
-		uint32_t right;	   // 4e9 is a puny number of primitives => long, not int
+		AABB	 box;
+		uint32_t right;		// 4e9 is a puny number of primitives => long, not int
 		uint32_t primitives;
 
 		char splitAxis;
@@ -126,27 +137,7 @@ class BVHTree : public IntersectionAccelerator<Element> {
 	std::vector<FastNode> fastNodes;
 	// the primitives sorted for fast traversal
 
-	bool built = false;
-	// cost for traversing a parent node. It is assumed that the intersection cost with a primitive is 1.0
-	static constexpr float SAH_TRAVERSAL_COST = 0.125;
-	// the number of splits SAH will try.
-	static constexpr int SAH_TRY_COUNT		  = 5;
-	static constexpr int MAX_DEPTH			  = 50;
-	static constexpr int MIN_PRIMITIVES_COUNT = 6;
-	// when a node has less than that number of primitives it will sort them and always split in the middle
-	//
-	// theoretically:
-	// the higher this is, the better the tree and the slower its construction
-	//
-	// practically:
-	// when setting this to something higher, the tree construction time changes by verry little
-	// and the render time goes up. When this is set to 1e6 (basically always sort), makes
-	// rendering about 30% slower than when it is 0 (never split perfectly). (on the instanced dragons scene)
-	// Perfect splits clearly produce shallower trees, which should make rendering faster ... but it doesn't.
-	//
-	// I guess SAH is too good
-	static constexpr int PERFECT_SPLIT_THRESHOLD = 20;
-
+	bool	 built			 = false;
 	int		 depth			 = 0;	  ///< depth of the tree
 	int		 leafSize		 = 0;	  ///< size of the largest leaf
 	long int leavesCount	 = 0;	  ///< hOw MaNy LeAvEs
@@ -162,8 +153,6 @@ class BVHTree : public IntersectionAccelerator<Element> {
 	float costSAH(const std::unique_ptr<Node> &node, int axis, float ratio);
 
    public:
-	using typename Super::Purpose;
-
 	BVHTree()							= default;
 	BVHTree(const BVHTree &)			= delete;
 	BVHTree(BVHTree &&)					= default;
@@ -181,7 +170,7 @@ class BVHTree : public IntersectionAccelerator<Element> {
 	 */
 	// void addPrimitive(Mesh *mesh, Transformation &transform);
 	void clear() override;
-	void build(Super::Purpose purpose = Super::Purpose::Generic) override;
+	void build() override;
 
 	void	 buildFastTree();
 	void	 buildFastTree(std::unique_ptr<Node> &, std::vector<FastNode> &allNodes);
@@ -196,33 +185,35 @@ class BVHTree : public IntersectionAccelerator<Element> {
 
 	~BVHTree();
 
-	const auto &getObjects() const {return allPrimitives;}
+	const auto &getObjects() const { return allPrimitives; }
 };
 
-using TriangleBVH = BVHTree<Triangle>;
-using AbstractBVH = BVHTree<Intersectable *>;
+template <Purpose p>
+using TriangleBVH = BVHTree<Triangle, p>;
+template <Purpose p>
+using AbstractBVH = BVHTree<Intersectable *, p>;
 
-template <class Element>
-void BVHTree<Element>::addPrimitive(const Element prim) {
+template <class Element, Purpose p>
+void BVHTree<Element, p>::addPrimitive(const Element prim) {
 	allPrimitives.emplace_back(prim);
 }
 
-template <class Element>
-void BVHTree<Element>::clear() {
+template <class Element, Purpose p>
+void BVHTree<Element, p>::clear() {
 	clearConstructionTree();
 	allPrimitives.clear();
 	fastNodes.clear();
 	built = false;
 }
 
-template <class Element>
-void BVHTree<Element>::clearConstructionTree() {
+template <class Element, Purpose p>
+void BVHTree<Element, p>::clearConstructionTree() {
 	root.reset(nullptr);
 }
 
-template <class Element>
-void BVHTree<Element>::build(std::unique_ptr<Node> &node, int depth) {
-	if (depth > MAX_DEPTH || node->primitives.size() <= MIN_PRIMITIVES_COUNT) {
+template <class Element, Purpose p>
+void BVHTree<Element, p>::build(std::unique_ptr<Node> &node, int depth) {
+	if (depth > p.MAX_DEPTH || node->primitives.size() <= p.MIN_PRIMITIVES_COUNT) {
 		leafSize = std::max((int)(node->primitives.size()), leafSize);
 		++leavesCount;
 		return;
@@ -237,8 +228,8 @@ void BVHTree<Element>::build(std::unique_ptr<Node> &node, int depth) {
 	vec3 size = centerBox.max - centerBox.min;
 
 	// find the axis on which the box is largest
-	uint_fast8_t  maxAxis	   = -1;
-	float maxAxisValue = -FLT_MAX;
+	uint_fast8_t maxAxis	  = -1;
+	float		 maxAxisValue = -FLT_MAX;
 	for (uint_fast8_t i = 0; i < 3; ++i) {
 		if (maxAxisValue < size[i]) {
 			maxAxis		 = i;
@@ -248,7 +239,7 @@ void BVHTree<Element>::build(std::unique_ptr<Node> &node, int depth) {
 	node->splitAxis = maxAxis;
 
 	// choose splitting algorithm
-	if (node->primitives.size() < PERFECT_SPLIT_THRESHOLD) {
+	if (node->primitives.size() < p.PERFECT_SPLIT_THRESHOLD) {
 		auto size = node->primitives.size();
 		// sorts so that the middle element is in its place, all others are in sorted order relative to it
 		std::nth_element(
@@ -269,8 +260,8 @@ void BVHTree<Element>::build(std::unique_ptr<Node> &node, int depth) {
 
 		// try evenly distributed splits with SAH
 		float bestSAH = FLT_MAX, bestRatio = -1;
-		for (int i = 0; i < SAH_TRY_COUNT; ++i) {
-			float ratio = float(i + 1.) / float(SAH_TRY_COUNT + 1);
+		for (int i = 0; i < p.SAH_TRY_COUNT; ++i) {
+			float ratio = float(i + 1.) / float(p.SAH_TRY_COUNT + 1);
 			float sah	= costSAH(node, maxAxis, ratio);
 			if (bestSAH > sah) {
 				bestSAH	  = sah;
@@ -303,9 +294,8 @@ void BVHTree<Element>::build(std::unique_ptr<Node> &node, int depth) {
 	node->primitives.clear();
 }
 
-template <class Element>
-void BVHTree<Element>::build(Super::Purpose purpose) {
-	static_cast<void>(purpose);
+template <class Element, Purpose p>
+void BVHTree<Element, p>::build() {
 	// purpose is ignored. what works best for triangles seems to also work best for objects
 	printf("Building BVH tree with %d primitives... \n", int(allPrimitives.size()));
 	fflush(stdout);
@@ -333,8 +323,8 @@ void BVHTree<Element>::build(Super::Purpose purpose) {
 		  ", leaves: ", leavesCount, ", depth: ", depth, ", leaf size: ", leafSize);
 }
 
-template <class Element>
-float BVHTree<Element>::costSAH(const std::unique_ptr<Node> &node, int axis, float ratio) {
+template <class Element, Purpose p>
+float BVHTree<Element, p>::costSAH(const std::unique_ptr<Node> &node, int axis, float ratio) {
 	// effectively a lerp between the min and max of the box
 	const float split	 = node->box.min[axis] * ratio + node->box.max[axis] * (1 - ratio);
 	long int	count[2] = {0, 0};
@@ -348,18 +338,18 @@ float BVHTree<Element>::costSAH(const std::unique_ptr<Node> &node, int axis, flo
 	// just the formula
 	float s0   = node->box.surfaceArea();
 	float s[2] = {count[0] ? boxes[0].surfaceArea() : 0, count[1] ? boxes[1].surfaceArea() : 0};
-	return SAH_TRAVERSAL_COST + (s[0] * count[0] + s[1] * count[1]) / s0;
+	return p.SAH_TRAVERSAL_COST + (s[0] * count[0] + s[1] * count[1]) / s0;
 }
 
-template <class Element>
-BVHTree<Element>::~BVHTree() {
+template <class Element, Purpose p>
+BVHTree<Element, p>::~BVHTree() {
 	clear();
 	clearConstructionTree();
 }
 
-template <class Element>
-bool BVHTree<Element>::intersect(long unsigned int nodeIndex, const Ray &ray, float tMin, float &tMax,
-								 RayHit &intersection, const IntersectionAccelerator<Element>::Filter &f) const {
+template <class Element, Purpose p>
+bool BVHTree<Element, p>::intersect(long unsigned int nodeIndex, const Ray &ray, float tMin, float &tMax,
+									RayHit &intersection, const IntersectionAccelerator<Element>::Filter &f) const {
 	bool			hasHit = false;
 	const FastNode *node   = &(fastNodes[nodeIndex]);
 
@@ -421,17 +411,17 @@ bool BVHTree<Element>::intersect(long unsigned int nodeIndex, const Ray &ray, fl
 	return hasHit;
 }
 
-template <class Element>
-bool BVHTree<Element>::intersect(const Ray &ray, float tMin, float tMax, RayHit &intersection,
-								 const IntersectionAccelerator<Element>::Filter &f) const {
+template <class Element, Purpose p>
+bool BVHTree<Element, p>::intersect(const Ray &ray, float tMin, float tMax, RayHit &intersection,
+									const IntersectionAccelerator<Element>::Filter &f) const {
 	if (!allPrimitives.empty() && fastNodes[0].box.testIntersect(ray)) {
 		return intersect(0, ray, tMin, tMax, intersection, f);
 	} else return false;
 }
 
 // builds a tree for fast traversal
-template <class Element>
-void BVHTree<Element>::buildFastTree() {
+template <class Element, Purpose p>
+void BVHTree<Element, p>::buildFastTree() {
 	// no reallocations whould happen
 	fastNodes.reserve(nodeCount);
 
@@ -445,8 +435,8 @@ void BVHTree<Element>::buildFastTree() {
 	if (!(root->isLeaf())) { buildFastTree(root, fastNodes); }
 }
 
-template <class Element>
-void BVHTree<Element>::buildFastTree(std::unique_ptr<Node> &node, std::vector<FastNode> &allNodes) {
+template <class Element, Purpose p>
+void BVHTree<Element, p>::buildFastTree(std::unique_ptr<Node> &node, std::vector<FastNode> &allNodes) {
 	int parentIndex = allNodes.size() - 1;
 
 	// insert the left child
@@ -466,8 +456,8 @@ void BVHTree<Element>::buildFastTree(std::unique_ptr<Node> &node, std::vector<Fa
 }
 
 // copies the data from a Node to a FastNode when constructing the traversal tree
-template <class Element>
-BVHTree<Element>::FastNode BVHTree<Element>::makeFastLeaf(std::unique_ptr<Node> &node) {
+template <class Element, Purpose p>
+BVHTree<Element, p>::FastNode BVHTree<Element, p>::makeFastLeaf(std::unique_ptr<Node> &node) {
 	if (node->isLeaf()) {
 		// This should have sped up things because continuous allocation should be better for cache.
 		// But it has no effect. It looks like the access of primitives is random enough that

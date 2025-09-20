@@ -11,7 +11,7 @@ class Mesh : public Primitive {
 	std::vector<vec3>  triangleNormals;
 	std::vector<ivec3> indices;
 
-	using BVHType = ygl::bvh::TriangleBVH;
+	using BVHType = ygl::bvh::TriangleBVH<ygl::bvh::Mesh>;
 
 	BVHType bvh;
 
@@ -77,7 +77,7 @@ class Mesh : public Primitive {
 		}
 		normals.resize(vertices.size(), vec3(0.0f));
 		recalculateNormals();
-		bvh.build(BVHType::Purpose::Mesh);
+		bvh.build();
 
 		dbLog(dbg::LOG_DEBUG, "Mesh created with ", vertices.size(), " vertices and ", indices.size(), " triangles.");
 	}
