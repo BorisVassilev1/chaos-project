@@ -1,6 +1,6 @@
 # CPU Path Tracer
 
-This is a CPU path tracer written in C++17. It supports multiple light bounces, multiple materials, importance sampling and multithreaded rendering.
+This is a CPU path tracer written in C++26. It supports multiple light bounces, multiple materials, importance sampling and multithreaded rendering. Scene representation is JSON and can be imported from Blender. The JSON parser was written from scratch using my own parser generator. Rendering is accelerated with a two-level BVH structure.
 
 ![render](demo.png)
 
