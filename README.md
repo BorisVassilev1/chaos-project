@@ -1,5 +1,9 @@
 # CPU Path Tracer
 
+This is a CPU path tracer written in C++17. It supports multiple light bounces, multiple materials, importance sampling and multithreaded rendering.
+
+![render](demo.png)
+
 ## How to use
 The renderer accepts json-described scenes. The latter command produces a scene file from a Blender scene.
 ```
