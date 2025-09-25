@@ -31,6 +31,8 @@ for f in range(scene.frame_start, scene.frame_end + 1):
 scene.frame_set(frame_current)
 print("frames: ", len(cameraPositions))
 
+reference_meshes = False
+
 with open("export.json", "w") as f:
     f.write("{\n")
     f.write(f"""  
@@ -144,71 +146,71 @@ with open("export.json", "w") as f:
 
     f.write('  ],\n')
 
-            
-    f.write('  "meshes": [\n')
-    for l, mesh in enumerate(meshes):
-        f.write('    {\n')
-        print("Exporting mesh:", mesh.name)
-        f.write(f'      "name": "{mesh.name}",\n')
-        f.write('      "vertices": [\n')
-        for i, v in enumerate(mesh.vertices):
-            f.write(f'        {v.co.x}, {v.co.y}, {v.co.z}')
-            if i < len(mesh.vertices) - 1:
-                f.write(',')
-            f.write('\n')
-        f.write('      ],\n')
-        f.write('      "normals": [\n')
-        for i, v in enumerate(mesh.vertices):
-            f.write(f'        {v.normal.x}, {v.normal.y}, {v.normal.z}')
-            if i < len(mesh.vertices) - 1:
-                f.write(',')
-            f.write('\n')
-        f.write('      ],\n')
-
-        if mesh.uv_layers.active is not None:
-            uvs = [(0.0, 0.0)] * len(mesh.vertices)
-            for lp in mesh.loops:
-                # access uv loop:
-                uv_loop = mesh.uv_layers.active.data[lp.index]
-                uv_coords = uv_loop.uv
-                uvs[lp.vertex_index] = (uv_coords.x, uv_coords.y)
-            f.write('      "uvs": [\n')
-            for i, uv in enumerate(uvs):
-                f.write(f'        {uv[0]}, {uv[1]}, 0')
-                if i < len(uvs) - 1:
+    if reference_meshes:
+        f.write('  "meshes": [\n')
+        for l, mesh in enumerate(meshes):
+            f.write('    {\n')
+            print("Exporting mesh:", mesh.name)
+            f.write(f'      "name": "{mesh.name}",\n')
+            f.write('      "vertices": [\n')
+            for i, v in enumerate(mesh.vertices):
+                f.write(f'        {v.co.x}, {v.co.y}, {v.co.z}')
+                if i < len(mesh.vertices) - 1:
+                    f.write(',')
+                f.write('\n')
+            f.write('      ],\n')
+            f.write('      "normals": [\n')
+            for i, v in enumerate(mesh.vertices):
+                f.write(f'        {v.normal.x}, {v.normal.y}, {v.normal.z}')
+                if i < len(mesh.vertices) - 1:
                     f.write(',')
                 f.write('\n')
             f.write('      ],\n')
 
-        f.write('      "triangles": [\n')
-        for i, face in enumerate(mesh.polygons):
-            for j,v in enumerate(face.vertices):
-                f.write(f'{v}')
-                if j < len(face.vertices) - 1 or i < len(mesh.polygons) - 1:
-                    f.write(',')
-            f.write('\n')
-        f.write('      ]\n')
-        f.write('    }')
-        if l < len(meshes) - 1:
-            f.write(',\n')
-        else:
-            f.write('\n')
-    f.write('  ],\n')
+            if mesh.uv_layers.active is not None:
+                uvs = [(0.0, 0.0)] * len(mesh.vertices)
+                for lp in mesh.loops:
+                    # access uv loop:
+                    uv_loop = mesh.uv_layers.active.data[lp.index]
+                    uv_coords = uv_loop.uv
+                    uvs[lp.vertex_index] = (uv_coords.x, uv_coords.y)
+                f.write('      "uvs": [\n')
+                for i, uv in enumerate(uvs):
+                    f.write(f'        {uv[0]}, {uv[1]}, 0')
+                    if i < len(uvs) - 1:
+                        f.write(',')
+                    f.write('\n')
+                f.write('      ],\n')
 
-    f.write('  "objects": [')
-    for l, obj in enumerate(objects):
-        if obj.hide_get():
-            continue
-        f.write('{');
-        mesh = obj.data;
-        matrix = obj.matrix_world
-        location = obj.location
-        if len(obj.material_slots) > 1: 
-            #print("Warning: Object has multiple materials, only the first will be exported.")
-            pass
-        if obj.material_slots[0].material in materials:
-            f.write(f'    "material_index": {materials.index(obj.material_slots[0].material)},\n')
-        f.write(
+            f.write('      "triangles": [\n')
+            for i, face in enumerate(mesh.polygons):
+                for j,v in enumerate(face.vertices):
+                    f.write(f'{v}')
+                    if j < len(face.vertices) - 1 or i < len(mesh.polygons) - 1:
+                        f.write(',')
+                f.write('\n')
+            f.write('      ]\n')
+            f.write('    }')
+            if l < len(meshes) - 1:
+                f.write(',\n')
+            else:
+                f.write('\n')
+        f.write('  ],\n')
+
+        f.write('  "objects": [')
+        for l, obj in enumerate(objects):
+            if obj.hide_get():
+                continue
+            f.write('{');
+            mesh = obj.data;
+            matrix = obj.matrix_world
+            location = obj.location
+            if len(obj.material_slots) > 1: 
+                #print("Warning: Object has multiple materials, only the first will be exported.")
+                pass
+            if obj.material_slots[0].material in materials:
+                f.write(f'    "material_index": {materials.index(obj.material_slots[0].material)},\n')
+            f.write(
 f'"ref":{meshes.index(mesh)},"transform":[\
 {matrix[0][0]},{matrix[0][1]},{matrix[0][2]},{matrix[0][3]},\
 {matrix[1][0]},{matrix[1][1]},{matrix[1][2]},{matrix[1][3]},\
@@ -216,11 +218,72 @@ f'"ref":{meshes.index(mesh)},"transform":[\
 0,0,0,1\
 ]')
 
-        f.write('}')
-        if l < len(objects) - 1:
-            f.write(',')
-        f.write('\n')
-    f.write('  ],\n')
+            f.write('}')
+            if l < len(objects) - 1:
+                f.write(',')
+            f.write('\n')
+        f.write('  ],\n')
+    else: # write all meshes as objects
+        f.write('  "objects": [\n')
+        for l, obj in enumerate(objects):
+            if obj.hide_get():
+                continue
+            f.write('    {\n');
+            mesh = obj.data;
+            matrix = obj.matrix_world
+            location = obj.location
+            if len(obj.material_slots) > 1: 
+                #print("Warning: Object has multiple materials, only the first will be exported.")
+                pass
+            if obj.material_slots[0].material in materials:
+                f.write(f'      "material_index": {materials.index(obj.material_slots[0].material)},\n')
+            f.write('        "vertices": [\n')
+            for i, v in enumerate(mesh.vertices):
+                v_world = matrix @ v.co
+                f.write(f'          {v_world.x}, {v_world.y}, {v_world.z}')
+                if i < len(mesh.vertices) - 1:
+                    f.write(',')
+                f.write('\n')
+            f.write('        ],\n')
+            f.write('        "normals": [\n')
+            for i, v in enumerate(mesh.vertices):
+                n_world = matrix.to_3x3() @ v.normal
+                n_world.normalize()
+                f.write(f'          {n_world.x}, {n_world.y}, {n_world.z}')
+                if i < len(mesh.vertices) - 1:
+                    f.write(',')
+                f.write('\n')
+            f.write('        ],\n')
+
+            if mesh.uv_layers.active is not None:
+                uvs = [(0.0, 0.0)] * len(mesh.vertices)
+                for lp in mesh.loops:
+                    # access uv loop:
+                    uv_loop = mesh.uv_layers.active.data[lp.index]
+                    uv_coords = uv_loop.uv
+                    uvs[lp.vertex_index] = (uv_coords.x, uv_coords.y)
+                f.write('        "uvs": [\n')
+                for i, uv in enumerate(uvs):
+                    f.write(f'          {uv[0]}, {uv[1]}, 0')
+                    if i < len(uvs) - 1:
+                        f.write(',')
+                    f.write('\n')
+                f.write('        ],\n')
+
+            f.write('        "triangles": [\n')
+            for i, face in enumerate(mesh.polygons):
+                for j,v in enumerate(face.vertices):
+                    f.write(f'{v}')
+                    if j < len(face.vertices) - 1 or i < len(mesh.polygons) - 1:
+                        f.write(',')
+                f.write('\n')
+            f.write('        ]\n')
+            f.write('      }\n')
+            if l < len(objects) - 1:
+                f.write(',\n')
+            else:
+                f.write('\n')
+        f.write('  ],\n')
 
     f.write('  "lights": [\n')
     for l, light in enumerate(lights):
