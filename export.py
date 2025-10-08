@@ -31,7 +31,7 @@ for f in range(scene.frame_start, scene.frame_end + 1):
 scene.frame_set(frame_current)
 print("frames: ", len(cameraPositions))
 
-reference_meshes = False
+reference_meshes = True
 
 with open("export.json", "w") as f:
     f.write("{\n")
