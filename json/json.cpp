@@ -1,8 +1,8 @@
 #include <iomanip>
 #include <json/json.hpp>
 #include <fstream>
-#include "log.hpp"
-#include "util/utils.hpp"
+#include <beamcast/log.hpp>
+#include <util/utils.hpp>
 
 const constexpr Token String		= Token::createTokenIKWIAD(1001ull);
 const constexpr Token Number		= Token::createTokenIKWIAD(1002ull);
@@ -206,7 +206,7 @@ std::ostream& operator<<(std::ostream& out, const JSONType& type) {
 	return out;
 }
 
-std::string_view toString(JSONType type) {
+std::string_view to_string(JSONType type) {
 	switch (type) {
 		case JSONType::String: return "String";
 		case JSONType::Number: return "Number";
@@ -216,6 +216,10 @@ std::string_view toString(JSONType type) {
 		case JSONType::Array: return "Array";
 		default: return "Unknown";
 	}
+}
+
+std::string to_String(JSONType type) {
+	return std::string(to_string(type));
 }
 
 std::unique_ptr<JSON> parseTreeToJSON(const std::unique_ptr<ParseNode<Token>>& node) {

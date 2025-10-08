@@ -33,11 +33,9 @@ TEST_CASE("JSON parsing") {
 	auto	   &parser	  = JSONParser::getInstance();
 	std::string json_str  = R"({"key": "value", "number": 123, "array": [1, 2, 3], "object": {"nested": "value"}})";
 	auto		tokenized = tokenize(json_str);
-	auto		result	  = parser.parse(tokenized.get());
-	CHECK(result);
-	std::cout << "Parsed JSON: " << result << std::endl;
-
-	auto json = parseTreeToJSON(result);
+	auto		json	  = parser.parse(tokenized.get());
+	CHECK(json != nullptr);
+	std::cout << "Parsed JSON: " << json << std::endl;
 
 	CHECK(json != nullptr);
 	json->print(std::cout);

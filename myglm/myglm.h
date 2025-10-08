@@ -5,7 +5,7 @@
 #include <myglm/vec3.h>
 #include <myglm/vec4.h>
 #include <myglm/views.h>
-#include "util/utils.hpp"
+#include <sdp_2023/util/utils.hpp>
 
 template <class T>
 inline constexpr auto affineInverse(const mat<T, 4, 4> &m) {

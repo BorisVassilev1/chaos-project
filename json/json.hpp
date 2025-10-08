@@ -3,7 +3,7 @@
 #include <DPDA/parser.h>
 #include <DPDA/token.h>
 #include <cassert>
-#include "log.hpp"
+#include <beamcast/log.hpp>
 
 extern const Token String;
 extern const Token Number;
@@ -47,7 +47,8 @@ CFG<Token>& getJSONGrammar();
 enum class JSONType { NONE, String, Number, Boolean, Null, Object, Array };
 
 std::ostream&	 operator<<(std::ostream& out, const JSONType& type);
-std::string_view toString(JSONType type);
+std::string_view to_string(JSONType type);
+std::string		 to_String(JSONType type);
 
 template <>
 struct std::formatter<JSONType> : ostream_formatter {};
