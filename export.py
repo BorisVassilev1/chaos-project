@@ -111,7 +111,7 @@ with open("export.json", "w") as f:
             print("  Glass BSDF found in material.")
             f.write('    "type": "refractive",\n')
             f.write('    "absorbtion" : [\
-				2., 0.4, 0.1\
+				2.0, 0.4, 0.1\
 			],\n')
             f.write('    "ior": 1.5,\n')
             f.write('    "smooth_shading": true\n')
